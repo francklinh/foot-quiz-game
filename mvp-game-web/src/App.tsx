@@ -1,11 +1,11 @@
 import { GameTitle } from "./components/GameTitle";
+import { CherryCounter } from "./components/CherryCounter";
 
 function App() {
   return (
-    <div className="p-4">
+    <div className="p-4 space-y-4">
       <GameTitle title="Top 10 Quiz" />
-      <GameTitle title="Grille Croisée" />
-      <GameTitle title="Club Express" />
+      <CherryCounter />
     </div>
   );
 }
