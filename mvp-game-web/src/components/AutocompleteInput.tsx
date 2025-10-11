@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type AutocompleteInputProps = {
-  suggestions: string[];                 // liste brute (ex: joueurs)
-  onSelect: (value: string) => void;     // callback quand on valide une suggestion
+  suggestions: string[];
+  onSelect: (value: string) => void;
   disabled?: boolean;
   placeholder?: string;
   className?: string;
+  minChars?: number; // Nouveau paramètre
 };
 
 export function AutocompleteInput({
@@ -14,6 +15,7 @@ export function AutocompleteInput({
   disabled,
   placeholder = "Tape une réponse…",
   className = "",
+  minChars = 2, // Par défaut 2, mais on passe 3 depuis Top10
 }: AutocompleteInputProps) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -24,11 +26,12 @@ export function AutocompleteInput({
   // Filtrage (case-insensitive) + tri simple
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return [];
+    // Ne filtre que si on a au moins minChars caractères
+    if (!q || q.length < minChars) return [];
     return suggestions
       .filter(s => s.toLowerCase().includes(q))
-      .slice(0, 8); // on limite à 8 items
-  }, [query, suggestions]);
+      .slice(0, 8);
+  }, [query, suggestions, minChars]);
 
   // Ouvre/ferme le menu suivant l'entrée
   useEffect(() => {
@@ -49,7 +52,6 @@ export function AutocompleteInput({
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (!open && e.key === "Enter") {
-      // permet aussi de valider en “free type” si correspond à une réponse
       validate(query);
       return;
     }
@@ -100,13 +102,12 @@ export function AutocompleteInput({
               key={item}
               role="option"
               aria-selected={idx === activeIndex}
-              onMouseDown={(e) => e.preventDefault()} // évite blur de l'input avant onClick
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => validate(item)}
               className={`px-3 py-2 cursor-pointer ${
                 idx === activeIndex ? "bg-blue-600 text-white" : "hover:bg-gray-100"
               }`}
             >
-              {/** Highlight simple de la zone matchée */}
               <Highlight query={query} text={item} />
             </li>
           ))}
@@ -116,7 +117,6 @@ export function AutocompleteInput({
   );
 }
 
-/** Petit helper visuel : met en gras la partie du texte qui match */
 function Highlight({ query, text }: { query: string; text: string }) {
   const q = query.trim();
   if (!q) return <span>{text}</span>;

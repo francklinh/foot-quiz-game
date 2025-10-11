@@ -1,17 +1,17 @@
 // src/pages/Top10.tsx
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+// import { useParams } from "react-router-dom"; // Pas utilisé pour l'instant
 import { AutocompleteInput } from "../components/AutocompleteInput";
 import { supabase } from "../lib/supabase";
 
-// --- Types DB (simplifiés) ---
+// --- Types DB ---
 type ThemeRow = { id: string; slug: string; title: string };
 type ThemeAnswerRow = { answer: string; answer_norm: string };
 type LeaderboardRow = { final_score: number; answers_count: number; ended_at: string };
 
 type Feedback = { type: "ok" | "error" | "info"; msg: string };
 
-// --- Helper: normalisation (sans accents, lowercase, espaces réduits) ---
+// --- Helper: normalisation ---
 function normalize(s: string) {
   return s
     .normalize("NFD")
@@ -22,8 +22,12 @@ function normalize(s: string) {
 }
 
 export function Top10() {
-  const { slug } = useParams();
-  const effectiveSlug = slug ?? "buteurs-ligue1"; // fallback si /top10 sans slug
+  // const { slug } = useParams(); // Pas utilisé pour l'instant
+
+  // Sélecteurs de mode et année
+  const [gameMode, setGameMode] = useState<"buteurs" | "passeurs">("buteurs");
+  const [selectedYear, setSelectedYear] = useState<string>("2024");
+  const [league, setLeague] = useState<string>("ligue1");
 
   // Auth
   const [userId, setUserId] = useState<string | null>(null);
@@ -37,8 +41,9 @@ export function Top10() {
 
   // UI / Game state
   const [title, setTitle] = useState("Top 10");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [gameStarted, setGameStarted] = useState(false);
 
   const [timeLeft, setTimeLeft] = useState(60);
   const [score, setScore] = useState(0);
@@ -49,6 +54,11 @@ export function Top10() {
   // Données thème
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [validSet, setValidSet] = useState<Set<string>>(new Set());
+  const [allValidAnswers, setAllValidAnswers] = useState<ThemeAnswerRow[]>([]);
+  
+  // 🎯 Système de prévisualisation avec flou
+  const [showPreview, setShowPreview] = useState(false);
+  const [foundAnswers, setFoundAnswers] = useState<Set<string>>(new Set());
 
   // Partie + leaderboard
   const [gameId, setGameId] = useState<string | null>(null);
@@ -59,13 +69,36 @@ export function Top10() {
 
   // Timer
   useEffect(() => {
-    if (loading || gameOver) return;
+    if (loading || gameOver || !gameStarted) return;
     const id = setInterval(() => setTimeLeft((t) => (t > 0 ? t - 1 : 0)), 1000);
     return () => clearInterval(id);
-  }, [loading, gameOver]);
+  }, [loading, gameOver, gameStarted]);
 
-  // Chargement thème + réponses + création de partie + leaderboard initial
+  // 🎯 Afficher la prévisualisation quand le jeu commence
   useEffect(() => {
+    if (gameStarted && allValidAnswers.length > 0) {
+      setShowPreview(true);
+      // Masquer la prévisualisation après 3 secondes
+      const timer = setTimeout(() => {
+        setShowPreview(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [gameStarted, allValidAnswers]);
+
+  // 🎯 Déflouter tous les joueurs à la fin de la partie
+  useEffect(() => {
+    if (gameOver && allValidAnswers.length > 0) {
+      // Ajouter tous les joueurs à foundAnswers pour les déflouter
+      const allAnswers = allValidAnswers.map(answer => answer.answer_norm);
+      setFoundAnswers(new Set(allAnswers));
+    }
+  }, [gameOver, allValidAnswers]);
+
+  // Chargement thème basé sur mode + année + ligue
+  useEffect(() => {
+    if (!gameStarted) return;
+    
     let cancelled = false;
 
     async function load() {
@@ -73,19 +106,23 @@ export function Top10() {
         setLoading(true);
         setLoadError(null);
 
+        // Construire le slug dynamique : ex "buteurs-ligue1-2024"
+        const dynamicSlug = `${gameMode}-${league}-${selectedYear}`;
+        setTitle(`Top 10 ${gameMode === "buteurs" ? "Buteurs" : "Passeurs"} ${league.toUpperCase()} ${selectedYear}`);
+
         // 1) Thème
         const { data: theme, error: themeErr } = await supabase
           .from("themes")
           .select("id, slug, title")
-          .eq("slug", effectiveSlug)
+          .eq("slug", dynamicSlug)
           .single<ThemeRow>();
-        if (themeErr) throw themeErr;
-        if (!theme) throw new Error("Theme not found");
+        
+        if (themeErr || !theme) {
+          throw new Error(`Thème "${dynamicSlug}" introuvable. Créez-le d'abord dans Supabase.`);
+        }
         if (cancelled) return;
 
-        setTitle(theme.title);
-
-        // 2) Réponses valides
+        // 2) Réponses valides (pour validation uniquement)
         const { data: rows, error: ansErr } = await supabase
           .from("theme_answers")
           .select("answer, answer_norm")
@@ -93,17 +130,26 @@ export function Top10() {
         if (ansErr) throw ansErr;
 
         const list = (rows ?? []) as ThemeAnswerRow[];
-        setSuggestions(list.map((r) => r.answer));
         setValidSet(new Set(list.map((r) => r.answer_norm)));
+        setAllValidAnswers(list); // Stocker toutes les réponses pour le récapitulatif
 
-        // 3) Reset UI
+        // 3) Suggestions = TOUS les joueurs de la base (pas seulement les réponses valides)
+        const { data: allPlayers, error: playersErr } = await supabase
+          .from("players")
+          .select("name")
+          .order("name");
+        
+        if (playersErr) throw playersErr;
+        setSuggestions((allPlayers ?? []).map((p) => p.name));
+
+        // 4) Reset UI
         setTimeLeft(60);
         setScore(0);
         setStreak(0);
         setAnswers([]);
         setFeedback(null);
 
-        // 4) Créer une partie (taggée user_id si connecté)
+        // 5) Créer une partie
         const { data: game, error: gameErr } = await supabase
           .from("games")
           .insert({ theme_id: theme.id, user_id: userId })
@@ -112,9 +158,9 @@ export function Top10() {
         if (gameErr) throw gameErr;
         if (!cancelled) setGameId(game.id);
 
-        // 5) Charger leaderboard initial
+        // 6) Charger leaderboard
         const { data: lb, error: lbErr } = await supabase.rpc("leaderboard_by_theme", {
-          p_slug: effectiveSlug,
+          p_slug: dynamicSlug,
           p_limit: 10,
         });
         if (lbErr) throw lbErr;
@@ -130,7 +176,7 @@ export function Top10() {
     return () => {
       cancelled = true;
     };
-  }, [effectiveSlug, userId]);
+  }, [gameStarted, gameMode, selectedYear, league, userId]);
 
   // Scoring
   const BASE_GOOD = 15;
@@ -144,9 +190,17 @@ export function Top10() {
     const norm = normalize(value);
     if (!norm) return;
 
+    // Debug: afficher les informations de matching
+    console.log("🔍 Debug matching:");
+    console.log("- Input:", value);
+    console.log("- Normalisé:", norm);
+    console.log("- ValidSet size:", validSet.size);
+    console.log("- ValidSet contient:", validSet.has(norm));
+    console.log("- ValidSet preview:", Array.from(validSet).slice(0, 5));
+
     // Doublon UI
     if (answers.some((a) => normalize(a) === norm)) {
-      setFeedback({ type: "info", msg: "Déjà trouvé ✅" });
+      setFeedback({ type: "info", msg: "Déjà trouvé" });
       return;
     }
 
@@ -159,7 +213,10 @@ export function Top10() {
       setAnswers((prev) => [...prev, value]);
       setScore((prev) => prev + delta);
       setStreak(nextStreak);
-      setFeedback({ type: "ok", msg: `Bonne réponse ✅ +${delta}` });
+      setFeedback({ type: "ok", msg: `Bonne réponse +${delta}` });
+      
+      // 🎯 Ajouter à la liste des réponses trouvées pour le défloutage
+      setFoundAnswers((prev) => new Set(Array.from(prev).concat(norm)));
 
       // DB
       try {
@@ -180,7 +237,7 @@ export function Top10() {
       // UI
       setStreak(0);
       setScore((prev) => Math.max(0, prev + delta));
-      setFeedback({ type: "error", msg: `Mauvaise réponse ❌ ${delta}` });
+      setFeedback({ type: "error", msg: `Mauvaise réponse ${delta}` });
 
       // DB
       try {
@@ -201,35 +258,66 @@ export function Top10() {
   // Clôture de partie + refresh leaderboard
   useEffect(() => {
     if (!gameOver || !gameId) return;
+    
+    let hasRun = false;
+    
     (async () => {
+      if (hasRun) return;
+      hasRun = true;
+
       try {
-        await supabase
+        console.log("Ending game:", gameId, "Score:", score, "Answers:", answers.length);
+        
+        const { data: updateResult, error: updateError } = await supabase
           .from("games")
           .update({
             ended_at: new Date().toISOString(),
             final_score: score,
             answers_count: answers.length,
           })
-          .eq("id", gameId);
+          .eq("id", gameId)
+          .select();
 
-        const { data: lb } = await supabase.rpc("leaderboard_by_theme", {
-          p_slug: effectiveSlug,
+        if (updateError) {
+          console.error("Update error:", updateError);
+        } else {
+          console.log("Game updated successfully:", updateResult);
+        }
+
+        const dynamicSlug = `${gameMode}-${league}-${selectedYear}`;
+        const { data: lb, error: lbError } = await supabase.rpc("leaderboard_by_theme", {
+          p_slug: dynamicSlug,
           p_limit: 10,
         });
+        
+        if (lbError) {
+          console.error("Leaderboard error:", lbError);
+        }
+        
+        console.log("Leaderboard response:", lb);
         setLeaderboard(lb ?? []);
       } catch (e) {
         console.error("endGame/leaderboard failed:", e);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameOver]);
+  }, [gameOver, gameId, score, answers.length, gameMode, league, selectedYear]);
 
-  // Couleur timer
-  const timeColor = useMemo(() => {
-    if (timeLeft <= 10) return "text-red-600";
-    if (timeLeft <= 20) return "text-yellow-600";
-    return "text-green-700";
-  }, [timeLeft]);
+  // Couleur timer (utilisée dans le JSX)
+  // const timeColor = () => {
+  //   if (timeLeft <= 10) return "text-red-600";
+  //   if (timeLeft <= 20) return "text-yellow-600";
+  //   return "text-green-700";
+  // };
+
+  // Fonction pour vérifier si une réponse a été trouvée
+  const isAnswerFound = (answerNorm: string) => {
+    return answers.some(answer => normalize(answer) === answerNorm);
+  };
+
+  // 🎯 Helper pour vérifier si une réponse doit être défloutée
+  const isAnswerUnblurred = (answerNorm: string) => {
+    return foundAnswers.has(answerNorm);
+  };
 
   // Erreur
   if (loadError) {
@@ -237,131 +325,356 @@ export function Top10() {
       <div className="p-6 space-y-3">
         <h1 className="text-2xl font-bold">Erreur de chargement</h1>
         <p className="text-red-600">{loadError}</p>
-        <div className="space-x-2">
-          <Link to="/top10/buteurs-ligue1" className="underline text-blue-600">
-            Buteurs L1
-          </Link>
-          <Link to="/top10/passeurs-ligue1" className="underline text-blue-600">
-            Passeurs L1
-          </Link>
-        </div>
+        <p className="text-sm text-gray-600">
+          Assurez-vous que le thème existe dans Supabase avec le slug correspondant.
+        </p>
+        <button
+          onClick={() => {
+            setGameStarted(false);
+            setLoadError(null);
+          }}
+          className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+        >
+          Retour
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="p-4 space-y-4 max-w-2xl mx-auto">
-      {/* Header */}
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">{title}</h1>
-          <p className="text-sm text-gray-600">
-            Thèmes rapides :{" "}
-            <Link className="underline" to="/top10/buteurs-ligue1">Buteurs</Link>{" "}
-            ·{" "}
-            <Link className="underline" to="/top10/passeurs-ligue1">Passeurs</Link>
-          </p>
-        </div>
-        <div className="text-lg">
-          🍒 <span className="font-bold">{score}</span>
+    <div className="min-h-screen bg-gradient-to-br from-green-400 via-blue-400 to-purple-500 p-4">
+      <div className="max-w-3xl mx-auto space-y-4">
+        {/* Header avec sélecteurs */}
+        <header className="space-y-4">
+          <h1 className="text-4xl font-black text-white text-center drop-shadow-lg mb-6">
+            ⚽ {title} ⚽
+          </h1>
+        
+        {/* Sélecteurs de configuration */}
+        <div className="bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-6 space-y-4">
+          <div className="grid grid-cols-3 gap-3">
+            {/* Mode de jeu */}
+            <div>
+              <label className="block text-sm font-bold text-purple-600 mb-2">🎯 Mode</label>
+              <select
+                value={gameMode}
+                onChange={(e) => setGameMode(e.target.value as "buteurs" | "passeurs")}
+                disabled={gameStarted && !gameOver}
+                className="w-full border-2 border-purple-300 rounded-xl px-3 py-2 bg-white font-semibold text-gray-700 disabled:bg-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
+              >
+                <option value="buteurs">⚽ Buteurs</option>
+                <option value="passeurs">🎯 Passeurs</option>
+              </select>
+            </div>
+
+            {/* Ligue */}
+            <div>
+              <label className="block text-sm font-bold text-green-600 mb-2">🏆 Ligue</label>
+              <select
+                value={league}
+                onChange={(e) => setLeague(e.target.value)}
+                disabled={gameStarted && !gameOver}
+                className="w-full border-2 border-green-300 rounded-xl px-3 py-2 bg-white font-semibold text-gray-700 disabled:bg-gray-100 focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
+              >
+                <option value="ligue1">🇫🇷 Ligue 1</option>
+                <option value="epl">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League</option>
+                <option value="laliga">🇪🇸 LaLiga</option>
+                <option value="seriea">🇮🇹 Serie A</option>
+                <option value="bundesliga">🇩🇪 Bundesliga</option>
+                <option value="ucl">⭐ Champions League</option>
+              </select>
+            </div>
+
+            {/* Année */}
+            <div>
+              <label className="block text-sm font-bold text-orange-600 mb-2">📅 Année</label>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                disabled={gameStarted && !gameOver}
+                className="w-full border-2 border-orange-300 rounded-xl px-3 py-2 bg-white font-semibold text-gray-700 disabled:bg-gray-100 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all"
+              >
+                <option value="2025">2024-2025</option>
+                <option value="2024">2023-2024</option>
+                <option value="2023">2022-2023</option>
+                <option value="2022">2021-2022</option>
+                <option value="2021">2020-2021</option>
+                <option value="2020">2019-2020</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Bouton Lancer la partie */}
+          {!gameStarted && (
+            <button
+              onClick={() => setGameStarted(true)}
+              className="w-full px-6 py-4 rounded-2xl bg-gradient-to-r from-green-500 to-blue-500 text-white text-xl font-black hover:from-green-600 hover:to-blue-600 transform hover:scale-105 transition-all shadow-xl"
+            >
+              🚀 LANCER LA PARTIE 🚀
+            </button>
+          )}
+
+          {gameStarted && !gameOver && (
+            <p className="text-xs text-center text-purple-600 font-semibold">
+              🔒 Sélecteurs verrouillés pendant la partie
+            </p>
+          )}
         </div>
       </header>
 
-      {/* Infos jeu */}
-      <div className="flex items-center gap-4">
-        <div className={`text-xl font-semibold ${timeColor}`}>
-          {loading ? "⏱️ ..." : <>⏱️ {timeLeft}s</>}
+      {/* 🎯 Prévisualisation avec flou */}
+      {showPreview && (
+        <div className="bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-6">
+          <h3 className="text-xl font-black text-center text-purple-600 mb-4">
+            👀 Aperçu du défi (3 secondes)
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {allValidAnswers.map((answer, index) => (
+              <div
+                key={index}
+                className="flex items-center gap-3 p-3 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50"
+              >
+                <span className="text-2xl font-bold text-purple-600">
+                  {index + 1}
+                </span>
+                <span className="font-bold text-gray-800 blur-sm">
+                  {answer.answer}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="text-sm text-gray-600">Streak 🔥 {streak}</div>
-        <div className="text-sm text-gray-600">Réponses : {answers.length}/10</div>
-      </div>
+      )}
 
-      {/* Saisie */}
-      <div className="flex gap-2">
-        <AutocompleteInput
-          suggestions={suggestions}
-          onSelect={onSelectAnswer}
-          disabled={loading || gameOver}
-          className="flex-1"
-          placeholder={loading ? "Chargement…" : "Tape une réponse…"}
-        />
-      </div>
+      {/* Score et compteurs - Visible seulement si partie lancée */}
+      {gameStarted && (
+        <div className="bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Timer */}
+              <div className={`px-4 py-2 rounded-2xl font-black text-lg shadow-lg ${
+                timeLeft <= 10 
+                  ? "bg-gradient-to-r from-red-500 to-pink-500 text-white animate-pulse" 
+                  : timeLeft <= 20
+                  ? "bg-gradient-to-r from-yellow-400 to-orange-500 text-white"
+                  : "bg-gradient-to-r from-green-400 to-teal-500 text-white"
+              }`}>
+                {loading ? "⏳" : `⏱️ ${timeLeft}s`}
+              </div>
+
+              {/* Streak */}
+              <div className="px-4 py-2 rounded-2xl bg-gradient-to-r from-orange-400 to-red-500 text-white font-black text-lg shadow-lg">
+                🔥 {streak}
+              </div>
+
+              {/* Réponses */}
+              <div className="px-4 py-2 rounded-2xl bg-gradient-to-r from-blue-400 to-purple-500 text-white font-black text-lg shadow-lg">
+                ✅ {answers.length}/10
+              </div>
+            </div>
+
+            {/* Score cerises */}
+            <div className="px-6 py-2 rounded-2xl bg-gradient-to-r from-pink-400 to-rose-500 text-white font-black text-2xl shadow-lg">
+              🍒 {score}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Saisie - Visible seulement si partie lancée */}
+      {gameStarted && (
+        <div className="bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-6">
+          <AutocompleteInput
+            suggestions={suggestions}
+            onSelect={onSelectAnswer}
+            disabled={loading || gameOver}
+            className="flex-1"
+            placeholder={loading ? "⏳ Chargement..." : "🔍 Tape au moins 3 caractères..."}
+            minChars={3}
+          />
+        </div>
+      )}
 
       {/* Feedback */}
-      {feedback && (
-        <div
-          className={
-            feedback.type === "ok"
-              ? "text-green-600"
-              : feedback.type === "error"
-              ? "text-red-600"
-              : "text-gray-600"
-          }
-        >
+      {gameStarted && feedback && (
+        <div className={`rounded-2xl p-4 text-center font-black text-lg shadow-lg ${
+          feedback.type === "ok"
+            ? "bg-gradient-to-r from-green-400 to-emerald-500 text-white"
+            : feedback.type === "error"
+            ? "bg-gradient-to-r from-red-400 to-rose-500 text-white animate-shake"
+            : "bg-gradient-to-r from-blue-400 to-cyan-500 text-white"
+        }`}>
           {feedback.msg}
         </div>
       )}
 
       {/* Réponses trouvées */}
-      <ul className="space-y-1">
-        {answers.map((a, i) => (
-          <li key={i} className="text-green-700">✅ {a}</li>
-        ))}
-      </ul>
+      {gameStarted && answers.length > 0 && (
+        <div className="bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-6">
+          <h3 className="font-black text-green-600 mb-3 text-lg">🎯 Tes réponses :</h3>
+          <div className="grid grid-cols-2 gap-2">
+            {answers.map((a, i) => (
+              <div key={i} className="bg-gradient-to-r from-green-100 to-emerald-100 border-2 border-green-400 rounded-xl px-4 py-2 font-bold text-green-800 flex items-center gap-2">
+                <span className="text-lg">✅</span>
+                <span>{a}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 🎯 Aperçu progressif des réponses (pendant le jeu) */}
+      {gameStarted && !gameOver && allValidAnswers.length > 0 && (
+        <div className="bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-6">
+          <h3 className="font-black text-purple-600 mb-3 text-lg">👀 Aperçu du défi :</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {allValidAnswers.map((answer, index) => {
+              const unblurred = isAnswerUnblurred(answer.answer_norm);
+              return (
+                <div
+                  key={index}
+                  className="flex items-center gap-3 p-3 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50"
+                >
+                  <span className="text-2xl font-bold text-purple-600">
+                    {index + 1}
+                  </span>
+                  <span 
+                    className={`font-bold text-gray-800 transition-all duration-500 ${
+                      unblurred ? "" : "blur-sm"
+                    }`}
+                  >
+                    {answer.answer}
+                  </span>
+                  {unblurred && (
+                    <span className="text-green-500 text-lg">✅</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Fin de partie */}
-      {gameOver && (
-        <footer className="p-3 border rounded bg-gray-50 space-y-2">
-          <p className="font-semibold">
+      {gameOver && gameStarted && (
+        <div className="bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-6 text-center space-y-4">
+          <div className="text-6xl mb-2">
+            {answers.length >= 8 ? "🏆" : answers.length >= 4 ? "👍" : "💪"}
+          </div>
+          <p className="text-2xl font-black bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
             {answers.length >= 8
-              ? "Vrai boss, triplé ! 🍒🍒🍒"
+              ? "LÉGENDE ! Triplé parfait ! 🍒🍒🍒"
               : answers.length >= 4
-              ? "Pas mal, encore un effort 💪"
-              : "On remet ça ? 🔁"}
+              ? "Pas mal ! Encore un effort 💪"
+              : "On se refait une partie ? 🔄"}
           </p>
+          <div className="text-4xl font-black text-pink-500">
+            {score} cerises ! 🍒
+          </div>
+
+          {/* Récapitulatif des réponses */}
+          <div className="bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-6 text-left">
+            <h3 className="text-xl font-black text-gray-800 mb-4 text-center">
+              📋 Récapitulatif des réponses
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-60 overflow-y-auto">
+              {allValidAnswers.map((answer, index) => {
+                const found = isAnswerFound(answer.answer_norm);
+                const unblurred = isAnswerUnblurred(answer.answer_norm);
+                return (
+                  <div
+                    key={index}
+                    className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
+                      found
+                        ? "bg-gradient-to-r from-green-100 to-emerald-100 border-green-400"
+                        : "bg-gradient-to-r from-red-100 to-rose-100 border-red-400"
+                    }`}
+                  >
+                    <span className="text-2xl">
+                      {found ? "✅" : "❌"}
+                    </span>
+                    <span 
+                      className={`font-bold transition-all duration-500 ${
+                        found ? "text-green-800" : "text-red-800"
+                      } ${!unblurred ? "blur-sm" : ""}`}
+                    >
+                      {answer.answer}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-4 text-center">
+              <p className="text-sm text-gray-600 font-semibold">
+                {answers.length}/{allValidAnswers.length} réponses trouvées
+              </p>
+            </div>
+          </div>
+
           <button
             ref={replayBtnRef}
-            className="px-4 py-2 rounded bg-gray-700 text-white"
+            className="px-8 py-4 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-black text-xl hover:from-purple-600 hover:to-pink-600 transform hover:scale-105 transition-all shadow-xl"
             onClick={() => {
+              setGameStarted(false);
               setTimeLeft(60);
               setScore(0);
               setStreak(0);
               setAnswers([]);
               setFeedback(null);
+              setGameId(null);
               replayBtnRef.current?.blur();
             }}
             disabled={loading}
           >
-            Rejouer
+            🎮 NOUVELLE PARTIE 🎮
           </button>
-        </footer>
+        </div>
       )}
 
       {/* Leaderboard */}
-      <section className="mt-6">
-        <h2 className="text-xl font-semibold mb-2">🏆 Meilleurs scores</h2>
+      <section className="bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-6">
+        <h2 className="text-2xl font-black bg-gradient-to-r from-yellow-500 to-orange-500 bg-clip-text text-transparent mb-4 flex items-center gap-2">
+          🏆 HALL OF FAME 🏆
+        </h2>
         {leaderboard.length === 0 ? (
-          <p className="text-sm text-gray-600">Pas encore de scores. Lance une partie !</p>
+          <p className="text-center text-gray-500 font-semibold py-8">
+            Aucun score pour l'instant... Sois le premier ! 🚀
+          </p>
         ) : (
-          <ol className="space-y-1">
+          <div className="space-y-2">
             {leaderboard.map((row, idx) => (
-              <li
+              <div
                 key={`${row.ended_at}-${idx}`}
-                className="flex items-center justify-between rounded border px-3 py-2"
+                className={`flex items-center justify-between rounded-2xl px-4 py-3 ${
+                  idx === 0 
+                    ? "bg-gradient-to-r from-yellow-200 to-amber-200 border-2 border-yellow-400"
+                    : idx === 1
+                    ? "bg-gradient-to-r from-gray-200 to-slate-200 border-2 border-gray-400"
+                    : idx === 2
+                    ? "bg-gradient-to-r from-orange-200 to-amber-200 border-2 border-orange-400"
+                    : "bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-purple-200"
+                }`}
               >
-                <div className="flex items-center gap-2">
-                  <span className="w-6 text-right font-mono">{idx + 1}.</span>
-                  <span className="font-semibold">{row.final_score}</span>
-                  <span className="text-xs text-gray-500">({row.answers_count}/10)</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl font-black">
+                    {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`}
+                  </span>
+                  <div>
+                    <div className="font-black text-lg text-gray-800">{row.final_score} 🍒</div>
+                    <div className="text-xs text-gray-600 font-semibold">
+                      {row.answers_count}/10 réponses
+                    </div>
+                  </div>
                 </div>
-                <time className="text-xs text-gray-500">
-                  {new Date(row.ended_at).toLocaleString()}
+                <time className="text-xs text-gray-500 font-medium">
+                  {new Date(row.ended_at).toLocaleDateString('fr-FR')}
                 </time>
-              </li>
+              </div>
             ))}
-          </ol>
+          </div>
         )}
       </section>
+      </div>
     </div>
   );
 }
