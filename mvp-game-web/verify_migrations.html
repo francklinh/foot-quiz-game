@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vérification des Migrations</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .success { color: #28a745; font-weight: bold; }
+        .error { color: #dc3545; font-weight: bold; }
+        .warning { color: #ffc107; font-weight: bold; }
+        .info { color: #17a2b8; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            border-left: 4px solid #007bff;
+        }
+        .flag { font-size: 1.5em; }
+        .ranking { font-weight: bold; color: #6f42c1; }
+        .stats { font-size: 0.9em; color: #6c757d; }
+        .checklist {
+            list-style: none;
+            padding: 0;
+        }
+        .checklist li {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            border-left: 4px solid #ddd;
+        }
+        .checklist li.passed {
+            background: #d4edda;
+            border-left-color: #28a745;
+        }
+        .checklist li.failed {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Vérification des Migrations</h1>
+    
+    <div class="container">
+        <h2>📋 Checklist des Migrations</h2>
+        <ul class="checklist" id="checklist">
+            <li id="check-players">🔲 Table players - Colonne nationality</li>
+            <li id="check-theme-answers">🔲 Table theme_answers - Colonnes ranking, goals, assists, value</li>
+            <li id="check-indexes">🔲 Index créés</li>
+            <li id="check-rankings">🔲 Rankings assignés</li>
+            <li id="check-nationalities">🔲 Nationalités ajoutées</li>
+            <li id="check-stats">🔲 Statistiques calculées</li>
+        </ul>
+        
+        <button onclick="runAllChecks()">🧪 Lancer la Vérification</button>
+        <button onclick="clearResults()">🗑️ Effacer</button>
+    </div>
+
+    <div class="container">
+        <h2>📊 Résultats</h2>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        // Configuration Supabase
+        const SUPABASE_URL = 'https://qahbsyolfvujrpblnrvy.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhaGJzeW9sZnZ1anJwYmxucnZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk0MjY3NTQsImV4cCI6MjA3NTAwMjc1NH0.R_5UPLhgDXW1IA7oGpUE7VB-1OFq-Tx7CNrOPJZ1XrA';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = type;
+            div.innerHTML = message;
+            results.appendChild(div);
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        function updateChecklist(id, status) {
+            const item = document.getElementById(id);
+            if (status === 'passed') {
+                item.className = 'passed';
+                item.innerHTML = item.innerHTML.replace('🔲', '✅');
+            } else if (status === 'failed') {
+                item.className = 'failed';
+                item.innerHTML = item.innerHTML.replace('🔲', '❌');
+            }
+        }
+        
+        async function checkPlayersTable() {
+            try {
+                log('🔍 Vérification de la table players...', 'info');
+                const response = await supabase
+                    .from('players')
+                    .select('id, name, nationality')
+                    .limit(1);
+                
+                if (response.error) {
+                    log(`❌ Erreur table players: ${response.error.message}`, 'error');
+                    updateChecklist('check-players', 'failed');
+                    return false;
+                }
+                
+                // Vérifier si la colonne nationality existe
+                const hasNationality = response.data.length > 0 && 'nationality' in response.data[0];
+                if (hasNationality) {
+                    log('✅ Table players - Colonne nationality présente', 'success');
+                    updateChecklist('check-players', 'passed');
+                    return true;
+                } else {
+                    log('❌ Table players - Colonne nationality manquante', 'error');
+                    updateChecklist('check-players', 'failed');
+                    return false;
+                }
+            } catch (error) {
+                log(`❌ Erreur: ${error.message}`, 'error');
+                updateChecklist('check-players', 'failed');
+                return false;
+            }
+        }
+        
+        async function checkThemeAnswersTable() {
+            try {
+                log('🔍 Vérification de la table theme_answers...', 'info');
+                const response = await supabase
+                    .from('theme_answers')
+                    .select('id, answer, ranking, goals, assists, value')
+                    .limit(1);
+                
+                if (response.error) {
+                    log(`❌ Erreur table theme_answers: ${response.error.message}`, 'error');
+                    updateChecklist('check-theme-answers', 'failed');
+                    return false;
+                }
+                
+                // Vérifier si les nouvelles colonnes existent
+                const hasNewColumns = response.data.length > 0 && 
+                    'ranking' in response.data[0] && 
+                    'goals' in response.data[0] && 
+                    'assists' in response.data[0] && 
+                    'value' in response.data[0];
+                
+                if (hasNewColumns) {
+                    log('✅ Table theme_answers - Nouvelles colonnes présentes', 'success');
+                    updateChecklist('check-theme-answers', 'passed');
+                    return true;
+                } else {
+                    log('❌ Table theme_answers - Nouvelles colonnes manquantes', 'error');
+                    updateChecklist('check-theme-answers', 'failed');
+                    return false;
+                }
+            } catch (error) {
+                log(`❌ Erreur: ${error.message}`, 'error');
+                updateChecklist('check-theme-answers', 'failed');
+                return false;
+            }
+        }
+        
+        async function checkRankings() {
+            try {
+                log('🔍 Vérification des rankings...', 'info');
+                const response = await supabase
+                    .from('theme_answers')
+                    .select('ranking')
+                    .not('ranking', 'is', null)
+                    .limit(10);
+                
+                if (response.error) {
+                    log(`❌ Erreur rankings: ${response.error.message}`, 'error');
+                    updateChecklist('check-rankings', 'failed');
+                    return false;
+                }
+                
+                if (response.data.length > 0) {
+                    log(`✅ Rankings assignés (${response.data.length} enregistrements)`, 'success');
+                    updateChecklist('check-rankings', 'passed');
+                    return true;
+                } else {
+                    log('❌ Aucun ranking assigné', 'error');
+                    updateChecklist('check-rankings', 'failed');
+                    return false;
+                }
+            } catch (error) {
+                log(`❌ Erreur: ${error.message}`, 'error');
+                updateChecklist('check-rankings', 'failed');
+                return false;
+            }
+        }
+        
+        async function checkNationalities() {
+            try {
+                log('🔍 Vérification des nationalités...', 'info');
+                const response = await supabase
+                    .from('players')
+                    .select('nationality')
+                    .not('nationality', 'is', null)
+                    .limit(10);
+                
+                if (response.error) {
+                    log(`❌ Erreur nationalités: ${response.error.message}`, 'error');
+                    updateChecklist('check-nationalities', 'failed');
+                    return false;
+                }
+                
+                if (response.data.length > 0) {
+                    log(`✅ Nationalités ajoutées (${response.data.length} enregistrements)`, 'success');
+                    updateChecklist('check-nationalities', 'passed');
+                    return true;
+                } else {
+                    log('❌ Aucune nationalité ajoutée', 'error');
+                    updateChecklist('check-nationalities', 'failed');
+                    return false;
+                }
+            } catch (error) {
+                log(`❌ Erreur: ${error.message}`, 'error');
+                updateChecklist('check-nationalities', 'failed');
+                return false;
+            }
+        }
+        
+        async function checkStats() {
+            try {
+                log('🔍 Vérification des statistiques...', 'info');
+                const response = await supabase
+                    .from('theme_answers')
+                    .select('goals, assists, value')
+                    .not('value', 'is', null)
+                    .limit(10);
+                
+                if (response.error) {
+                    log(`❌ Erreur statistiques: ${response.error.message}`, 'error');
+                    updateChecklist('check-stats', 'failed');
+                    return false;
+                }
+                
+                if (response.data.length > 0) {
+                    log(`✅ Statistiques calculées (${response.data.length} enregistrements)`, 'success');
+                    updateChecklist('check-stats', 'passed');
+                    return true;
+                } else {
+                    log('❌ Aucune statistique calculée', 'error');
+                    updateChecklist('check-stats', 'failed');
+                    return false;
+                }
+            } catch (error) {
+                log(`❌ Erreur: ${error.message}`, 'error');
+                updateChecklist('check-stats', 'failed');
+                return false;
+            }
+        }
+        
+        async function runAllChecks() {
+            log('🚀 Début de la vérification des migrations...', 'info');
+            clearResults();
+            
+            // Réinitialiser la checklist
+            const checklistItems = document.querySelectorAll('.checklist li');
+            checklistItems.forEach(item => {
+                item.className = '';
+                item.innerHTML = item.innerHTML.replace(/[✅❌]/, '🔲');
+            });
+            
+            const results = await Promise.all([
+                checkPlayersTable(),
+                checkThemeAnswersTable(),
+                checkRankings(),
+                checkNationalities(),
+                checkStats()
+            ]);
+            
+            const passed = results.filter(r => r).length;
+            const total = results.length;
+            
+            log(`<br>📊 Résumé: ${passed}/${total} vérifications réussies`, passed === total ? 'success' : 'warning');
+            
+            if (passed === total) {
+                log('🎉 Toutes les migrations sont terminées avec succès !', 'success');
+                log('💡 Vous pouvez maintenant mettre à jour votre application React', 'info');
+            } else {
+                log('⚠️ Certaines migrations ne sont pas terminées', 'warning');
+                log('📋 Consultez le guide GUIDE_MIGRATIONS.md pour les étapes manquantes', 'info');
+            }
+        }
+        
+        // Test automatique au chargement
+        window.onload = function() {
+            log('🚀 Page de vérification des migrations chargée', 'success');
+            log('💡 Cliquez sur "Lancer la Vérification" pour tester les migrations', 'info');
+        };
+    </script>
+</body>
+</html>

@@ -4,8 +4,8 @@ import { supabase } from "../lib/supabase";
 
 // 🔐 Liste des super admins autorisés
 export const SUPER_ADMIN_EMAILS = [
-  "franckhandou@gmail.com", // Votre email principal
-  "ugo.arnopoulos@gmail.com"// Ajoutez d'autres emails d'admins ici
+  "franck.handou@gmail.com", // Votre email principal (avec point)
+  "ugo.arnopoulos@gmail.com", // Ajoutez d'autres emails d'admins ici
   // "admin2@example.com",
   // "admin3@example.com",
 ];

@@ -6,7 +6,17 @@ import { supabase } from "../lib/supabase";
 
 // --- Types DB ---
 type ThemeRow = { id: string; slug: string; title: string };
-type ThemeAnswerRow = { answer: string; answer_norm: string };
+type ThemeAnswerRow = { 
+  answer: string; 
+  answer_norm: string;
+  ranking?: number;
+  goals?: number;
+  assists?: number;
+  value?: number;
+  players?: {
+    nationality?: string;
+  };
+};
 type LeaderboardRow = { final_score: number; answers_count: number; ended_at: string };
 
 type Feedback = { type: "ok" | "error" | "info"; msg: string };
@@ -19,6 +29,32 @@ function normalize(s: string) {
     .toLowerCase()
     .trim()
     .replace(/\s+/g, " ");
+}
+
+// --- Helper: Drapeaux ---
+const COUNTRY_FLAGS: Record<string, string> = {
+  'FRA': '🇫🇷', 'ESP': '🇪🇸', 'BRA': '🇧🇷', 'ARG': '🇦🇷',
+  'GER': '🇩🇪', 'ENG': '🇬🇧', 'POR': '🇵🇹', 'ITA': '🇮🇹',
+  'NED': '🇳🇱', 'BEL': '🇧🇪', 'NOR': '🇳🇴', 'EGY': '🇪🇬',
+  'NGA': '🇳🇬', 'CAN': '🇨🇦', 'USA': '🇺🇸', 'CHI': '🇨🇱',
+  'UKR': '🇺🇦', 'POL': '🇵🇱', 'SRB': '🇷🇸', 'GUI': '🇬🇳',
+  'KOR': '🇰🇷', 'SWE': '🇸🇪', 'CRO': '🇭🇷', 'DEN': '🇩🇰',
+};
+
+function getCountryFlag(countryCode: string | null | undefined): string {
+  if (!countryCode) return '🏳️';
+  return COUNTRY_FLAGS[countryCode.toUpperCase()] || '🏳️';
+}
+
+function getStatisticUnit(gameMode: string): string {
+  switch (gameMode.toLowerCase()) {
+    case 'buteurs':
+      return 'buts';
+    case 'passeurs':
+      return 'passes';
+    default:
+      return 'points';
+  }
 }
 
 export function Top10() {
@@ -57,7 +93,6 @@ export function Top10() {
   const [allValidAnswers, setAllValidAnswers] = useState<ThemeAnswerRow[]>([]);
   
   // 🎯 Système de prévisualisation avec flou
-  const [showPreview, setShowPreview] = useState(false);
   const [foundAnswers, setFoundAnswers] = useState<Set<string>>(new Set());
 
   // Partie + leaderboard
@@ -73,18 +108,6 @@ export function Top10() {
     const id = setInterval(() => setTimeLeft((t) => (t > 0 ? t - 1 : 0)), 1000);
     return () => clearInterval(id);
   }, [loading, gameOver, gameStarted]);
-
-  // 🎯 Afficher la prévisualisation quand le jeu commence
-  useEffect(() => {
-    if (gameStarted && allValidAnswers.length > 0) {
-      setShowPreview(true);
-      // Masquer la prévisualisation après 3 secondes
-      const timer = setTimeout(() => {
-        setShowPreview(false);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [gameStarted, allValidAnswers]);
 
   // 🎯 Déflouter tous les joueurs à la fin de la partie
   useEffect(() => {
@@ -122,14 +145,42 @@ export function Top10() {
         }
         if (cancelled) return;
 
-        // 2) Réponses valides (pour validation uniquement)
+        // 2) Réponses valides avec nouvelles colonnes (ranking, goals, assists, value)
         const { data: rows, error: ansErr } = await supabase
           .from("theme_answers")
-          .select("answer, answer_norm")
-          .eq("theme_id", theme.id);
+          .select(`
+            answer, 
+            answer_norm,
+            ranking,
+            goals,
+            assists,
+            value
+          `)
+          .eq("theme_id", theme.id)
+          .order("ranking", { ascending: true }); // Tri par ranking croissant
         if (ansErr) throw ansErr;
 
-        const list = (rows ?? []) as ThemeAnswerRow[];
+        // 2b) Récupérer les nationalités des joueurs
+        const { data: playersData, error: playersDataErr } = await supabase
+          .from("players")
+          .select("name, nationality");
+        
+        if (playersDataErr) console.error("Erreur lors de la récupération des nationalités:", playersDataErr);
+        
+        // Créer un map name -> nationality
+        const nationalityMap = new Map<string, string>();
+        (playersData ?? []).forEach((p: any) => {
+          nationalityMap.set(normalize(p.name), p.nationality);
+        });
+
+        // Ajouter les nationalités aux réponses
+        const list = (rows ?? []).map((r: any) => ({
+          ...r,
+          players: {
+            nationality: nationalityMap.get(r.answer_norm)
+          }
+        })) as ThemeAnswerRow[];
+        
         setValidSet(new Set(list.map((r) => r.answer_norm)));
         setAllValidAnswers(list); // Stocker toutes les réponses pour le récapitulatif
 
@@ -422,30 +473,6 @@ export function Top10() {
         </div>
       </header>
 
-      {/* 🎯 Prévisualisation avec flou */}
-      {showPreview && (
-        <div className="bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-6">
-          <h3 className="text-xl font-black text-center text-purple-600 mb-4">
-            👀 Aperçu du défi (3 secondes)
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {allValidAnswers.map((answer, index) => (
-              <div
-                key={index}
-                className="flex items-center gap-3 p-3 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50"
-              >
-                <span className="text-2xl font-bold text-purple-600">
-                  {index + 1}
-                </span>
-                <span className="font-bold text-gray-800 blur-sm">
-                  {answer.answer}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Score et compteurs - Visible seulement si partie lancée */}
       {gameStarted && (
         <div className="bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-4">
@@ -530,21 +557,35 @@ export function Top10() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {allValidAnswers.map((answer, index) => {
               const unblurred = isAnswerUnblurred(answer.answer_norm);
+              const flag = getCountryFlag(answer.players?.nationality);
+              const statValue = gameMode === 'buteurs' ? answer.goals : answer.assists;
+              const statUnit = getStatisticUnit(gameMode);
+              
               return (
                 <div
                   key={index}
-                  className="flex items-center gap-3 p-3 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50"
+                  className="flex items-center gap-2 p-3 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50"
                 >
                   <span className="text-2xl font-bold text-purple-600">
-                    {index + 1}
+                    {answer.ranking || (index + 1)}.
+                  </span>
+                  <span className="text-2xl">
+                    {flag}
                   </span>
                   <span 
-                    className={`font-bold text-gray-800 transition-all duration-500 ${
+                    className={`font-bold text-gray-800 flex-1 transition-all duration-500 ${
                       unblurred ? "" : "blur-sm"
                     }`}
                   >
                     {answer.answer}
                   </span>
+                  {statValue && (
+                    <span className={`text-sm font-semibold text-gray-600 bg-gray-100 px-2 py-1 rounded transition-all duration-500 ${
+                      unblurred ? "" : "blur-sm"
+                    }`}>
+                      {statValue} {statUnit}
+                    </span>
+                  )}
                   {unblurred && (
                     <span className="text-green-500 text-lg">✅</span>
                   )}
@@ -581,25 +622,42 @@ export function Top10() {
               {allValidAnswers.map((answer, index) => {
                 const found = isAnswerFound(answer.answer_norm);
                 const unblurred = isAnswerUnblurred(answer.answer_norm);
+                const flag = getCountryFlag(answer.players?.nationality);
+                const statValue = gameMode === 'buteurs' ? answer.goals : answer.assists;
+                const statUnit = getStatisticUnit(gameMode);
+                
                 return (
                   <div
                     key={index}
-                    className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
+                    className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all ${
                       found
                         ? "bg-gradient-to-r from-green-100 to-emerald-100 border-green-400"
                         : "bg-gradient-to-r from-red-100 to-rose-100 border-red-400"
                     }`}
                   >
+                    <span className="text-xl font-bold text-purple-600">
+                      {answer.ranking || (index + 1)}.
+                    </span>
+                    <span className="text-2xl">
+                      {flag}
+                    </span>
                     <span className="text-2xl">
                       {found ? "✅" : "❌"}
                     </span>
                     <span 
-                      className={`font-bold transition-all duration-500 ${
+                      className={`font-bold flex-1 transition-all duration-500 ${
                         found ? "text-green-800" : "text-red-800"
                       } ${!unblurred ? "blur-sm" : ""}`}
                     >
                       {answer.answer}
                     </span>
+                    {statValue && (
+                      <span className={`text-xs font-semibold text-gray-600 bg-gray-100 px-2 py-1 rounded ${
+                        !unblurred ? "blur-sm" : ""
+                      }`}>
+                        {statValue} {statUnit}
+                      </span>
+                    )}
                   </div>
                 );
               })}

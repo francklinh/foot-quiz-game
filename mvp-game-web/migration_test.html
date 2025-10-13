@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test des Migrations - Base de Données</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .warning { color: #ffc107; }
+        .info { color: #17a2b8; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            border-left: 4px solid #007bff;
+        }
+        .flag { font-size: 1.5em; }
+        .ranking { font-weight: bold; color: #6f42c1; }
+        .stats { font-size: 0.9em; color: #6c757d; }
+    </style>
+</head>
+<body>
+    <h1>🗄️ Test des Migrations - Base de Données</h1>
+    
+    <div class="container">
+        <h2>📋 Instructions</h2>
+        <p>Ce script teste les modifications de la base de données pour ajouter les drapeaux et le classement.</p>
+        <p><strong>⚠️ Important :</strong> Assurez-vous d'avoir exécuté les migrations SQL avant de lancer les tests.</p>
+        
+        <button onclick="testDatabaseStructure()">🧪 Tester la Structure</button>
+        <button onclick="testDataMigration()">📊 Tester les Données</button>
+        <button onclick="testFlagDisplay()">🏳️ Tester les Drapeaux</button>
+        <button onclick="testRanking()">📈 Tester le Classement</button>
+        <button onclick="clearResults()">🗑️ Effacer les Résultats</button>
+    </div>
+
+    <div class="container">
+        <h2>📊 Résultats des Tests</h2>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        // Configuration Supabase
+        const SUPABASE_URL = 'https://qahbsyolfvujrpblnrvy.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhaGJzeW9sZnZ1anJwYmxucnZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk0MjY3NTQsImV4cCI6MjA3NTAwMjc1NH0.R_5UPLhgDXW1IA7oGpUE7VB-1OFq-Tx7CNrOPJZ1XrA';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = type;
+            div.innerHTML = message;
+            results.appendChild(div);
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        async function testDatabaseStructure() {
+            log('🧪 <strong>Test de la structure de la base de données</strong>', 'info');
+            
+            try {
+                // Test 1: Table players avec nationality
+                log('📋 Test 1: Table players avec colonne nationality...', 'info');
+                const playersResponse = await supabase
+                    .from('players')
+                    .select('id, name, nationality')
+                    .limit(5);
+                
+                if (playersResponse.error) {
+                    log(`❌ Erreur players: ${playersResponse.error.message}`, 'error');
+                } else {
+                    log(`✅ Table players accessible (${playersResponse.data.length} enregistrements)`, 'success');
+                    if (playersResponse.data.length > 0) {
+                        log(`📊 Exemple: ${JSON.stringify(playersResponse.data[0], null, 2)}`, 'info');
+                    }
+                }
+                
+                // Test 2: Table theme_answers avec nouvelles colonnes
+                log('<br>📋 Test 2: Table theme_answers avec colonnes ranking, goals, assists, value...', 'info');
+                const themeAnswersResponse = await supabase
+                    .from('theme_answers')
+                    .select('id, answer, ranking, goals, assists, value')
+                    .limit(5);
+                
+                if (themeAnswersResponse.error) {
+                    log(`❌ Erreur theme_answers: ${themeAnswersResponse.error.message}`, 'error');
+                } else {
+                    log(`✅ Table theme_answers accessible (${themeAnswersResponse.data.length} enregistrements)`, 'success');
+                    if (themeAnswersResponse.data.length > 0) {
+                        log(`📊 Exemple: ${JSON.stringify(themeAnswersResponse.data[0], null, 2)}`, 'info');
+                    }
+                }
+                
+            } catch (error) {
+                log(`❌ Erreur générale: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testDataMigration() {
+            log('📊 <strong>Test de la migration des données</strong>', 'info');
+            
+            try {
+                // Test des jointures
+                log('🔗 Test des jointures players + theme_answers...', 'info');
+                const joinResponse = await supabase
+                    .from('theme_answers')
+                    .select(`
+                        id,
+                        answer,
+                        ranking,
+                        goals,
+                        assists,
+                        value,
+                        players!inner(nationality)
+                    `)
+                    .limit(5);
+                
+                if (joinResponse.error) {
+                    log(`❌ Erreur jointure: ${joinResponse.error.message}`, 'error');
+                } else {
+                    log(`✅ Jointure fonctionnelle (${joinResponse.data.length} enregistrements)`, 'success');
+                    if (joinResponse.data.length > 0) {
+                        log(`📊 Exemple avec nationalité: ${JSON.stringify(joinResponse.data[0], null, 2)}`, 'info');
+                    }
+                }
+                
+            } catch (error) {
+                log(`❌ Erreur: ${error.message}`, 'error');
+            }
+        }
+        
+        function testFlagDisplay() {
+            log('🏳️ <strong>Test d\'affichage des drapeaux</strong>', 'info');
+            
+            const countryFlags = {
+                'FRA': '🇫🇷', 'ESP': '🇪🇸', 'BRA': '🇧🇷', 'ARG': '🇦🇷',
+                'GER': '🇩🇪', 'ENG': '🇬🇧', 'POR': '🇵🇹', 'ITA': '🇮🇹',
+                'NED': '🇳🇱', 'BEL': '🇧🇪', 'USA': '🇺🇸', 'MEX': '🇲🇽'
+            };
+            
+            log('📊 Mapping des drapeaux:', 'info');
+            Object.entries(countryFlags).forEach(([code, flag]) => {
+                log(`<span class="flag">${flag}</span> ${code}`, 'info');
+            });
+        }
+        
+        async function testRanking() {
+            log('📈 <strong>Test du classement</strong>', 'info');
+            
+            try {
+                // Test du tri par ranking
+                log('🔄 Test du tri par ranking...', 'info');
+                const sortedResponse = await supabase
+                    .from('theme_answers')
+                    .select('answer, ranking, value, players(nationality)')
+                    .not('ranking', 'is', null)
+                    .order('ranking', { ascending: true })
+                    .limit(10);
+                
+                if (sortedResponse.error) {
+                    log(`❌ Erreur tri: ${sortedResponse.error.message}`, 'error');
+                } else {
+                    log(`✅ Tri par ranking fonctionnel (${sortedResponse.data.length} enregistrements)`, 'success');
+                    
+                    if (sortedResponse.data.length > 0) {
+                        log('📊 Top 10 trié:', 'info');
+                        sortedResponse.data.forEach((item, index) => {
+                            const flag = countryFlags[item.players?.nationality] || '🏳️';
+                            const stats = item.value ? ` (${item.value} pts)` : '';
+                            log(`<span class="ranking">${item.ranking}.</span> <span class="flag">${flag}</span> ${item.answer}${stats}`, 'info');
+                        });
+                    }
+                }
+                
+            } catch (error) {
+                log(`❌ Erreur: ${error.message}`, 'error');
+            }
+        }
+        
+        // Mapping des drapeaux pour l'affichage
+        const countryFlags = {
+            'FRA': '🇫🇷', 'ESP': '🇪🇸', 'BRA': '🇧🇷', 'ARG': '🇦🇷',
+            'GER': '🇩🇪', 'ENG': '🇬🇧', 'POR': '🇵🇹', 'ITA': '🇮🇹',
+            'NED': '🇳🇱', 'BEL': '🇧🇪', 'USA': '🇺🇸', 'MEX': '🇲🇽'
+        };
+        
+        // Test automatique au chargement
+        window.onload = function() {
+            log('🚀 <strong>Page de test des migrations chargée</strong>', 'success');
+            log('💡 Cliquez sur les boutons ci-dessus pour tester les différentes fonctionnalités', 'info');
+        };
+    </script>
+</body>
+</html>
