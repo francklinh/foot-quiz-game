@@ -393,25 +393,28 @@ export function Top10() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-400 via-blue-400 to-purple-500 p-4">
-      <div className="max-w-3xl mx-auto space-y-4">
+    <div className="min-h-screen bg-soccer-pattern p-4">
+      <div className="max-w-4xl mx-auto space-y-6">
         {/* Header avec sélecteurs */}
-        <header className="space-y-4">
-          <h1 className="text-4xl font-black text-white text-center drop-shadow-lg mb-6">
-            ⚽ {title} ⚽
-          </h1>
+        <header className="space-y-6">
+          <div className="text-center">
+            <h1 className="text-5xl md:text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary mb-2">
+              ⚽ {title} ⚽
+            </h1>
+            <p className="text-lg text-text/70 font-medium">Testez vos connaissances footballistiques !</p>
+          </div>
         
         {/* Sélecteurs de configuration */}
-        <div className="bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-6 space-y-4">
-          <div className="grid grid-cols-3 gap-3">
+        <div className="bg-white/90 backdrop-blur rounded-2xl shadow-xl p-6 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Mode de jeu */}
             <div>
-              <label className="block text-sm font-bold text-purple-600 mb-2">🎯 Mode</label>
+              <label className="block text-sm font-medium text-text mb-2">🎯 Mode de jeu</label>
               <select
                 value={gameMode}
                 onChange={(e) => setGameMode(e.target.value as "buteurs" | "passeurs")}
                 disabled={gameStarted && !gameOver}
-                className="w-full border-2 border-purple-300 rounded-xl px-3 py-2 bg-white font-semibold text-gray-700 disabled:bg-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
+                className="w-full p-3 rounded-xl border-2 border-primary/20 bg-accent font-medium text-text focus:outline-none focus:border-primary transition-colors duration-200 disabled:opacity-50"
               >
                 <option value="buteurs">⚽ Buteurs</option>
                 <option value="passeurs">🎯 Passeurs</option>
@@ -420,12 +423,12 @@ export function Top10() {
 
             {/* Ligue */}
             <div>
-              <label className="block text-sm font-bold text-green-600 mb-2">🏆 Ligue</label>
+              <label className="block text-sm font-medium text-text mb-2">🏆 Ligue</label>
               <select
                 value={league}
                 onChange={(e) => setLeague(e.target.value)}
                 disabled={gameStarted && !gameOver}
-                className="w-full border-2 border-green-300 rounded-xl px-3 py-2 bg-white font-semibold text-gray-700 disabled:bg-gray-100 focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
+                className="w-full p-3 rounded-xl border-2 border-primary/20 bg-accent font-medium text-text focus:outline-none focus:border-primary transition-colors duration-200 disabled:opacity-50"
               >
                 <option value="ligue1">🇫🇷 Ligue 1</option>
                 <option value="epl">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League</option>
@@ -554,44 +557,88 @@ export function Top10() {
       {gameStarted && !gameOver && allValidAnswers.length > 0 && (
         <div className="bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-6">
           <h3 className="font-black text-purple-600 mb-3 text-lg">👀 Aperçu du défi :</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {allValidAnswers.map((answer, index) => {
-              const unblurred = isAnswerUnblurred(answer.answer_norm);
-              const flag = getCountryFlag(answer.players?.nationality);
-              const statValue = gameMode === 'buteurs' ? answer.goals : answer.assists;
-              const statUnit = getStatisticUnit(gameMode);
-              
-              return (
-                <div
-                  key={index}
-                  className="flex items-center gap-2 p-3 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50"
-                >
-                  <span className="text-2xl font-bold text-purple-600">
-                    {answer.ranking || (index + 1)}.
-                  </span>
-                  <span className="text-2xl">
-                    {flag}
-                  </span>
-                  <span 
-                    className={`font-bold text-gray-800 flex-1 transition-all duration-500 ${
-                      unblurred ? "" : "blur-sm"
-                    }`}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Colonne gauche : joueurs 1-5 */}
+            <div className="space-y-3">
+              {allValidAnswers.slice(0, 5).map((answer, index) => {
+                const unblurred = isAnswerUnblurred(answer.answer_norm);
+                const flag = getCountryFlag(answer.players?.nationality);
+                const statValue = gameMode === 'buteurs' ? answer.goals : answer.assists;
+                const statUnit = getStatisticUnit(gameMode);
+                
+                return (
+                  <div
+                    key={index}
+                    className="flex items-center gap-2 p-3 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50"
                   >
-                    {answer.answer}
-                  </span>
-                  {statValue && (
-                    <span className={`text-sm font-semibold text-gray-600 bg-gray-100 px-2 py-1 rounded transition-all duration-500 ${
-                      unblurred ? "" : "blur-sm"
-                    }`}>
-                      {statValue} {statUnit}
+                    <span className="text-2xl font-bold text-purple-600">
+                      {answer.ranking || (index + 1)}.
                     </span>
-                  )}
-                  {unblurred && (
-                    <span className="text-green-500 text-lg">✅</span>
-                  )}
-                </div>
-              );
-            })}
+                    <span className="text-2xl">
+                      {flag}
+                    </span>
+                    <span 
+                      className={`font-bold text-gray-800 flex-1 transition-all duration-500 ${
+                        unblurred ? "" : "blur-sm"
+                      }`}
+                    >
+                      {answer.answer}
+                    </span>
+                    {statValue && (
+                      <span className={`text-sm font-semibold text-gray-600 bg-gray-100 px-2 py-1 rounded transition-all duration-500 ${
+                        unblurred ? "" : "blur-sm"
+                      }`}>
+                        {statValue} {statUnit}
+                      </span>
+                    )}
+                    {unblurred && (
+                      <span className="text-green-500 text-lg">✅</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            
+            {/* Colonne droite : joueurs 6-10 */}
+            <div className="space-y-3">
+              {allValidAnswers.slice(5, 10).map((answer, index) => {
+                const unblurred = isAnswerUnblurred(answer.answer_norm);
+                const flag = getCountryFlag(answer.players?.nationality);
+                const statValue = gameMode === 'buteurs' ? answer.goals : answer.assists;
+                const statUnit = getStatisticUnit(gameMode);
+                
+                return (
+                  <div
+                    key={index + 5}
+                    className="flex items-center gap-2 p-3 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50"
+                  >
+                    <span className="text-2xl font-bold text-purple-600">
+                      {answer.ranking || (index + 6)}.
+                    </span>
+                    <span className="text-2xl">
+                      {flag}
+                    </span>
+                    <span 
+                      className={`font-bold text-gray-800 flex-1 transition-all duration-500 ${
+                        unblurred ? "" : "blur-sm"
+                      }`}
+                    >
+                      {answer.answer}
+                    </span>
+                    {statValue && (
+                      <span className={`text-sm font-semibold text-gray-600 bg-gray-100 px-2 py-1 rounded transition-all duration-500 ${
+                        unblurred ? "" : "blur-sm"
+                      }`}>
+                        {statValue} {statUnit}
+                      </span>
+                    )}
+                    {unblurred && (
+                      <span className="text-green-500 text-lg">✅</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
@@ -618,49 +665,98 @@ export function Top10() {
             <h3 className="text-xl font-black text-gray-800 mb-4 text-center">
               📋 Récapitulatif des réponses
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-60 overflow-y-auto">
-              {allValidAnswers.map((answer, index) => {
-                const found = isAnswerFound(answer.answer_norm);
-                const unblurred = isAnswerUnblurred(answer.answer_norm);
-                const flag = getCountryFlag(answer.players?.nationality);
-                const statValue = gameMode === 'buteurs' ? answer.goals : answer.assists;
-                const statUnit = getStatisticUnit(gameMode);
-                
-                return (
-                  <div
-                    key={index}
-                    className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all ${
-                      found
-                        ? "bg-gradient-to-r from-green-100 to-emerald-100 border-green-400"
-                        : "bg-gradient-to-r from-red-100 to-rose-100 border-red-400"
-                    }`}
-                  >
-                    <span className="text-xl font-bold text-purple-600">
-                      {answer.ranking || (index + 1)}.
-                    </span>
-                    <span className="text-2xl">
-                      {flag}
-                    </span>
-                    <span className="text-2xl">
-                      {found ? "✅" : "❌"}
-                    </span>
-                    <span 
-                      className={`font-bold flex-1 transition-all duration-500 ${
-                        found ? "text-green-800" : "text-red-800"
-                      } ${!unblurred ? "blur-sm" : ""}`}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-60 overflow-y-auto">
+              {/* Colonne gauche : joueurs 1-5 */}
+              <div className="space-y-3">
+                {allValidAnswers.slice(0, 5).map((answer, index) => {
+                  const found = isAnswerFound(answer.answer_norm);
+                  const unblurred = isAnswerUnblurred(answer.answer_norm);
+                  const flag = getCountryFlag(answer.players?.nationality);
+                  const statValue = gameMode === 'buteurs' ? answer.goals : answer.assists;
+                  const statUnit = getStatisticUnit(gameMode);
+                  
+                  return (
+                    <div
+                      key={index}
+                      className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                        found
+                          ? "bg-gradient-to-r from-green-100 to-emerald-100 border-green-400"
+                          : "bg-gradient-to-r from-red-100 to-rose-100 border-red-400"
+                      }`}
                     >
-                      {answer.answer}
-                    </span>
-                    {statValue && (
-                      <span className={`text-xs font-semibold text-gray-600 bg-gray-100 px-2 py-1 rounded ${
-                        !unblurred ? "blur-sm" : ""
-                      }`}>
-                        {statValue} {statUnit}
+                      <span className="text-xl font-bold text-purple-600">
+                        {answer.ranking || (index + 1)}.
                       </span>
-                    )}
-                  </div>
-                );
-              })}
+                      <span className="text-2xl">
+                        {flag}
+                      </span>
+                      <span className="text-2xl">
+                        {found ? "✅" : "❌"}
+                      </span>
+                      <span 
+                        className={`font-bold flex-1 transition-all duration-500 ${
+                          found ? "text-green-800" : "text-red-800"
+                        } ${!unblurred ? "blur-sm" : ""}`}
+                      >
+                        {answer.answer}
+                      </span>
+                      {statValue && (
+                        <span className={`text-xs font-semibold text-gray-600 bg-gray-100 px-2 py-1 rounded ${
+                          !unblurred ? "blur-sm" : ""
+                        }`}>
+                          {statValue} {statUnit}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              
+              {/* Colonne droite : joueurs 6-10 */}
+              <div className="space-y-3">
+                {allValidAnswers.slice(5, 10).map((answer, index) => {
+                  const found = isAnswerFound(answer.answer_norm);
+                  const unblurred = isAnswerUnblurred(answer.answer_norm);
+                  const flag = getCountryFlag(answer.players?.nationality);
+                  const statValue = gameMode === 'buteurs' ? answer.goals : answer.assists;
+                  const statUnit = getStatisticUnit(gameMode);
+                  
+                  return (
+                    <div
+                      key={index + 5}
+                      className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                        found
+                          ? "bg-gradient-to-r from-green-100 to-emerald-100 border-green-400"
+                          : "bg-gradient-to-r from-red-100 to-rose-100 border-red-400"
+                      }`}
+                    >
+                      <span className="text-xl font-bold text-purple-600">
+                        {answer.ranking || (index + 6)}.
+                      </span>
+                      <span className="text-2xl">
+                        {flag}
+                      </span>
+                      <span className="text-2xl">
+                        {found ? "✅" : "❌"}
+                      </span>
+                      <span 
+                        className={`font-bold flex-1 transition-all duration-500 ${
+                          found ? "text-green-800" : "text-red-800"
+                        } ${!unblurred ? "blur-sm" : ""}`}
+                      >
+                        {answer.answer}
+                      </span>
+                      {statValue && (
+                        <span className={`text-xs font-semibold text-gray-600 bg-gray-100 px-2 py-1 rounded ${
+                          !unblurred ? "blur-sm" : ""
+                        }`}>
+                          {statValue} {statUnit}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
             <div className="mt-4 text-center">
               <p className="text-sm text-gray-600 font-semibold">

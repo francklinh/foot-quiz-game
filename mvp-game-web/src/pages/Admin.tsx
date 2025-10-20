@@ -3,6 +3,238 @@ import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { useAdminAuth } from "../Utils/auth";
 
+// Helper function to get country flag emoji
+const getCountryFlag = (nationality: string): string => {
+  const countryFlags: { [key: string]: string } = {
+    'France': '🇫🇷',
+    'Brazil': '🇧🇷',
+    'Argentina': '🇦🇷',
+    'Spain': '🇪🇸',
+    'England': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+    'Germany': '🇩🇪',
+    'Italy': '🇮🇹',
+    'Portugal': '🇵🇹',
+    'Netherlands': '🇳🇱',
+    'Belgium': '🇧🇪',
+    'Poland': '🇵🇱',
+    'Croatia': '🇭🇷',
+    'Norway': '🇳🇴',
+    'Egypt': '🇪🇬',
+    'South Korea': '🇰🇷',
+    'Nigeria': '🇳🇬',
+    'Canada': '🇨🇦',
+    'Morocco': '🇲🇦',
+    'Senegal': '🇸🇳',
+    'Algeria': '🇩🇿',
+    'Tunisia': '🇹🇳',
+    'Ivory Coast': '🇨🇮',
+    'Ghana': '🇬🇭',
+    'Cameroon': '🇨🇲',
+    'Mali': '🇲🇱',
+    'Burkina Faso': '🇧🇫',
+    'Guinea': '🇬🇳',
+    'Togo': '🇹🇬',
+    'Congo': '🇨🇬',
+    'DR Congo': '🇨🇩',
+    'Central African Republic': '🇨🇫',
+    'Chad': '🇹🇩',
+    'Niger': '🇳🇪',
+    'Gabon': '🇬🇦',
+    'Equatorial Guinea': '🇬🇶',
+    'São Tomé and Príncipe': '🇸🇹',
+    'Cape Verde': '🇨🇻',
+    'Guinea-Bissau': '🇬🇼',
+    'Liberia': '🇱🇷',
+    'Sierra Leone': '🇸🇱',
+    'Gambia': '🇬🇲',
+    'Mauritania': '🇲🇷',
+    'Mauritius': '🇲🇺',
+    'Seychelles': '🇸🇨',
+    'Comoros': '🇰🇲',
+    'Madagascar': '🇲🇬',
+    'Malawi': '🇲🇼',
+    'Zambia': '🇿🇲',
+    'Zimbabwe': '🇿🇼',
+    'Botswana': '🇧🇼',
+    'Namibia': '🇳🇦',
+    'South Africa': '🇿🇦',
+    'Lesotho': '🇱🇸',
+    'Swaziland': '🇸🇿',
+    'Mozambique': '🇲🇿',
+    'Tanzania': '🇹🇿',
+    'Kenya': '🇰🇪',
+    'Uganda': '🇺🇬',
+    'Rwanda': '🇷🇼',
+    'Burundi': '🇧🇮',
+    'Ethiopia': '🇪🇹',
+    'Eritrea': '🇪🇷',
+    'Djibouti': '🇩🇯',
+    'Somalia': '🇸🇴',
+    'Sudan': '🇸🇩',
+    'South Sudan': '🇸🇸',
+    'Libya': '🇱🇾',
+    'Lebanon': '🇱🇧',
+    'Syria': '🇸🇾',
+    'Jordan': '🇯🇴',
+    'Israel': '🇮🇱',
+    'Palestine': '🇵🇸',
+    'Saudi Arabia': '🇸🇦',
+    'Yemen': '🇾🇪',
+    'Oman': '🇴🇲',
+    'UAE': '🇦🇪',
+    'Qatar': '🇶🇦',
+    'Bahrain': '🇧🇭',
+    'Kuwait': '🇰🇼',
+    'Iraq': '🇮🇶',
+    'Iran': '🇮🇷',
+    'Turkey': '🇹🇷',
+    'Cyprus': '🇨🇾',
+    'Greece': '🇬🇷',
+    'Albania': '🇦🇱',
+    'North Macedonia': '🇲🇰',
+    'Bulgaria': '🇧🇬',
+    'Romania': '🇷🇴',
+    'Moldova': '🇲🇩',
+    'Ukraine': '🇺🇦',
+    'Belarus': '🇧🇾',
+    'Lithuania': '🇱🇹',
+    'Latvia': '🇱🇻',
+    'Estonia': '🇪🇪',
+    'Russia': '🇷🇺',
+    'Georgia': '🇬🇪',
+    'Armenia': '🇦🇲',
+    'Azerbaijan': '🇦🇿',
+    'Kazakhstan': '🇰🇿',
+    'Uzbekistan': '🇺🇿',
+    'Turkmenistan': '🇹🇲',
+    'Tajikistan': '🇹🇯',
+    'Kyrgyzstan': '🇰🇬',
+    'Afghanistan': '🇦🇫',
+    'Pakistan': '🇵🇰',
+    'India': '🇮🇳',
+    'Bangladesh': '🇧🇩',
+    'Sri Lanka': '🇱🇰',
+    'Maldives': '🇲🇻',
+    'Nepal': '🇳🇵',
+    'Bhutan': '🇧🇹',
+    'Myanmar': '🇲🇲',
+    'Thailand': '🇹🇭',
+    'Laos': '🇱🇦',
+    'Vietnam': '🇻🇳',
+    'Cambodia': '🇰🇭',
+    'Malaysia': '🇲🇾',
+    'Singapore': '🇸🇬',
+    'Indonesia': '🇮🇩',
+    'Brunei': '🇧🇳',
+    'Philippines': '🇵🇭',
+    'Taiwan': '🇹🇼',
+    'Hong Kong': '🇭🇰',
+    'Macau': '🇲🇴',
+    'China': '🇨🇳',
+    'Mongolia': '🇲🇳',
+    'North Korea': '🇰🇵',
+    'Japan': '🇯🇵',
+    'Australia': '🇦🇺',
+    'New Zealand': '🇳🇿',
+    'United States': '🇺🇸',
+    'Mexico': '🇲🇽',
+    'Guatemala': '🇬🇹',
+    'Belize': '🇧🇿',
+    'El Salvador': '🇸🇻',
+    'Honduras': '🇭🇳',
+    'Nicaragua': '🇳🇮',
+    'Costa Rica': '🇨🇷',
+    'Panama': '🇵🇦',
+    'Cuba': '🇨🇺',
+    'Jamaica': '🇯🇲',
+    'Haiti': '🇭🇹',
+    'Dominican Republic': '🇩🇴',
+    'Puerto Rico': '🇵🇷',
+    'Venezuela': '🇻🇪',
+    'Colombia': '🇨🇴',
+    'Guyana': '🇬🇾',
+    'Suriname': '🇸🇷',
+    'French Guiana': '🇬🇫',
+    'Ecuador': '🇪🇨',
+    'Peru': '🇵🇪',
+    'Bolivia': '🇧🇴',
+    'Paraguay': '🇵🇾',
+    'Uruguay': '🇺🇾',
+    'Chile': '🇨🇱'
+  };
+  
+  return countryFlags[nationality] || '🏳️';
+};
+
+// Get list of available countries for dropdown
+const getAvailableCountries = (): string[] => {
+  return [
+    'France', 'Brazil', 'Argentina', 'Spain', 'England', 'Germany', 'Italy', 'Portugal',
+    'Netherlands', 'Belgium', 'Poland', 'Croatia', 'Norway', 'Egypt', 'South Korea',
+    'Nigeria', 'Canada', 'Morocco', 'Senegal', 'Algeria', 'Tunisia', 'Ivory Coast',
+    'Ghana', 'Cameroon', 'Mali', 'Burkina Faso', 'Guinea', 'Togo', 'Congo',
+    'DR Congo', 'Central African Republic', 'Chad', 'Niger', 'Gabon',
+    'Equatorial Guinea', 'São Tomé and Príncipe', 'Cape Verde', 'Guinea-Bissau',
+    'Liberia', 'Sierra Leone', 'Gambia', 'Mauritania', 'Mauritius', 'Seychelles',
+    'Comoros', 'Madagascar', 'Malawi', 'Zambia', 'Zimbabwe', 'Botswana', 'Namibia',
+    'South Africa', 'Lesotho', 'Swaziland', 'Mozambique', 'Tanzania', 'Kenya',
+    'Uganda', 'Rwanda', 'Burundi', 'Ethiopia', 'Eritrea', 'Djibouti', 'Somalia',
+    'Sudan', 'South Sudan', 'Libya', 'Lebanon', 'Syria', 'Jordan', 'Israel',
+    'Palestine', 'Saudi Arabia', 'Yemen', 'Oman', 'UAE', 'Qatar', 'Bahrain',
+    'Kuwait', 'Iraq', 'Iran', 'Turkey', 'Cyprus', 'Greece', 'Albania',
+    'North Macedonia', 'Bulgaria', 'Romania', 'Moldova', 'Ukraine', 'Belarus',
+    'Lithuania', 'Latvia', 'Estonia', 'Russia', 'Georgia', 'Armenia', 'Azerbaijan',
+    'Kazakhstan', 'Uzbekistan', 'Turkmenistan', 'Tajikistan', 'Kyrgyzstan',
+    'Afghanistan', 'Pakistan', 'India', 'Bangladesh', 'Sri Lanka', 'Maldives',
+    'Nepal', 'Bhutan', 'Myanmar', 'Thailand', 'Laos', 'Vietnam', 'Cambodia',
+    'Malaysia', 'Singapore', 'Indonesia', 'Brunei', 'Philippines', 'Taiwan',
+    'Hong Kong', 'Macau', 'China', 'Mongolia', 'North Korea', 'Japan',
+    'Australia', 'New Zealand', 'United States', 'Mexico', 'Guatemala', 'Belize',
+    'El Salvador', 'Honduras', 'Nicaragua', 'Costa Rica', 'Panama', 'Cuba',
+    'Jamaica', 'Haiti', 'Dominican Republic', 'Puerto Rico', 'Venezuela',
+    'Colombia', 'Guyana', 'Suriname', 'French Guiana', 'Ecuador', 'Peru',
+    'Bolivia', 'Paraguay', 'Uruguay', 'Chile'
+  ].sort();
+};
+
+// Helper function to get statistic unit based on theme
+const getStatisticUnit = (themeSlug: string): string => {
+  if (themeSlug.includes('buteurs')) return 'buts';
+  if (themeSlug.includes('passeurs')) return 'passes';
+  return 'pts';
+};
+
+// Helper function to get statistic value
+const getStatisticValue = (answer: ThemeAnswer, themeSlug: string): number | null => {
+  if (themeSlug.includes('buteurs')) return answer.goals || null;
+  if (themeSlug.includes('passeurs')) return answer.assists || null;
+  return answer.value || null;
+};
+
+// Helper function to get player suggestions based on search
+const getPlayerSuggestions = (search: string, players: Player[], existingAnswers: ThemeAnswer[]): Player[] => {
+  if (!search || search.length < 2) return [];
+  
+  const searchLower = search.toLowerCase();
+  const existingAnswerNames = new Set(existingAnswers.map(a => a.answer_norm));
+  
+  return players
+    .filter(player => {
+      const playerNameLower = player.name.toLowerCase();
+      // Normaliser le nom du joueur comme dans la base de données
+      const playerNameNorm = player.name
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, " ");
+      
+      return playerNameLower.includes(searchLower) && 
+             !existingAnswerNames.has(playerNameNorm);
+    })
+    .slice(0, 8); // Limiter à 8 suggestions
+};
+
 // Types
 type Theme = {
   id: string;
@@ -14,6 +246,7 @@ type Theme = {
 type Player = {
   id: string;
   name: string;
+  nationality?: string;
   created_at: string;
 };
 
@@ -22,6 +255,13 @@ type ThemeAnswer = {
   theme_id: string;
   answer: string;
   answer_norm: string;
+  ranking?: number;
+  goals?: number;
+  assists?: number;
+  value?: number;
+  players?: {
+    nationality?: string;
+  };
 };
 
 export function Admin() {
@@ -49,7 +289,17 @@ export function Admin() {
   // États pour les joueurs
   const [players, setPlayers] = useState<Player[]>([]);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
-  const [newPlayer, setNewPlayer] = useState({ name: "" });
+  const [newPlayer, setNewPlayer] = useState({ name: "", nationality: "" });
+  
+  // États pour la recherche de pays
+  const [nationalitySearch, setNationalitySearch] = useState("");
+  const [editingNationalitySearch, setEditingNationalitySearch] = useState("");
+  
+  // État pour la suppression
+  const [deletingAnswers, setDeletingAnswers] = useState<Set<string>>(new Set());
+  
+  // État pour la recherche de réponses
+  const [answerSearch, setAnswerSearch] = useState("");
 
 
   // Charger les données seulement si admin
@@ -112,15 +362,92 @@ export function Admin() {
 
   const loadThemeAnswers = async (themeId: string) => {
     try {
-      const { data, error } = await supabase
-        .from("theme_answers")
-        .select("*")
-        .eq("theme_id", themeId)
-        .order("answer");
+      console.log("Chargement des réponses pour le thème:", themeId);
       
-      if (error) throw error;
-      setThemeAnswers(data || []);
+      // 1) Récupérer les réponses (d'abord essayer avec les nouvelles colonnes)
+      let { data: rows, error } = await supabase
+        .from("theme_answers")
+        .select(`
+          id,
+          theme_id,
+          answer,
+          answer_norm,
+          ranking,
+          goals,
+          assists,
+          value
+        `)
+        .eq("theme_id", themeId);
+      
+      // Si erreur, essayer sans les nouvelles colonnes
+      if (error) {
+        console.warn("Erreur avec les nouvelles colonnes, tentative sans:", error);
+        const { data: fallbackRows, error: fallbackError } = await supabase
+          .from("theme_answers")
+          .select(`
+            id,
+            theme_id,
+            answer,
+            answer_norm
+          `)
+          .eq("theme_id", themeId);
+        
+        if (fallbackError) {
+          console.error("Erreur lors de la récupération des réponses:", fallbackError);
+          throw fallbackError;
+        }
+        // Normaliser les données pour avoir le même type
+        rows = fallbackRows?.map((row: any) => ({
+          ...row,
+          ranking: null,
+          goals: null,
+          assists: null,
+          value: null
+        }));
+      } else {
+        // Trier par ranking si disponible
+        if (rows) {
+          rows = rows.sort((a: any, b: any) => (a.ranking || 0) - (b.ranking || 0));
+        }
+      }
+
+      console.log("Réponses récupérées:", rows?.length || 0);
+
+      // 2) Récupérer les nationalités des joueurs
+      const { data: playersData, error: playersDataErr } = await supabase
+        .from("players")
+        .select("name, nationality");
+
+      if (playersDataErr) {
+        console.error("Erreur lors de la récupération des nationalités:", playersDataErr);
+      }
+
+      // 3) Créer un map name -> nationality
+      const nationalityMap = new Map<string, string>();
+      (playersData ?? []).forEach((p: any) => {
+        if (p.name && p.nationality) {
+          const normalizedName = p.name
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .trim()
+            .replace(/\s+/g, " ");
+          nationalityMap.set(normalizedName, p.nationality);
+        }
+      });
+
+      // 4) Ajouter les nationalités aux réponses
+      const answersWithNationality = (rows ?? []).map((r: any) => ({
+        ...r,
+        players: {
+          nationality: nationalityMap.get(r.answer_norm) || null
+        }
+      }));
+
+      console.log("Réponses avec nationalités:", answersWithNationality.length);
+      setThemeAnswers(answersWithNationality);
     } catch (e: any) {
+      console.error("Erreur dans loadThemeAnswers:", e);
       setError(e.message);
     }
   };
@@ -196,38 +523,162 @@ export function Admin() {
       .trim()
       .replace(/\s+/g, " ");
     
+    // Vérifier si le joueur existe déjà dans le thème (dans l'état local ET en base)
+    const existingAnswer = themeAnswers.find(a => a.answer_norm === answerNorm);
+    if (existingAnswer) {
+      setError(`❌ Ce joueur existe déjà dans ce thème (position ${existingAnswer.ranking || 'N/A'})`);
+      return;
+    }
+    
     try {
+      console.log("Ajout d'une nouvelle réponse:", newAnswer.answer);
+      
+      // Double vérification en base de données pour éviter les race conditions
+      const { data: existingDbAnswer, error: checkError } = await supabase
+        .from("theme_answers")
+        .select("id, ranking")
+        .eq("theme_id", themeId)
+        .eq("answer_norm", answerNorm)
+        .maybeSingle();
+      
+      if (existingDbAnswer) {
+        setError(`❌ Ce joueur existe déjà dans ce thème (position ${existingDbAnswer.ranking || 'N/A'}). Veuillez rafraîchir la page.`);
+        return;
+      }
+      
+      // 1. Calculer le bon ranking (dernier + 1)
+      const maxRanking = themeAnswers.length > 0 ? Math.max(...themeAnswers.map(a => a.ranking || 0)) : 0;
+      const newRanking = maxRanking + 1;
+      
+      // 2. Récupérer les statistiques du joueur depuis la base de données
+      let playerStats = { goals: null, assists: null, value: null, nationality: null };
+      
+      try {
+        const { data: playerData, error: playerError } = await supabase
+          .from("players")
+          .select("goals, assists, value, nationality")
+          .eq("name", newAnswer.answer)
+          .single();
+        
+        if (!playerError && playerData) {
+          playerStats = {
+            goals: playerData.goals,
+            assists: playerData.assists,
+            value: playerData.value,
+            nationality: playerData.nationality
+          };
+          console.log("Statistiques joueur récupérées:", playerStats);
+        }
+      } catch (e) {
+        console.log("Pas de statistiques trouvées pour ce joueur, utilisation des valeurs par défaut");
+      }
+      
+      // 3. Insérer avec toutes les colonnes en une seule fois
       const { data, error } = await supabase
         .from("theme_answers")
         .insert([{
           theme_id: themeId,
           answer: newAnswer.answer,
-          answer_norm: answerNorm
+          answer_norm: answerNorm,
+          ranking: newRanking,
+          goals: playerStats.goals,
+          assists: playerStats.assists,
+          value: playerStats.value
         }])
         .select()
         .single();
       
-      if (error) throw error;
-      setThemeAnswers([...themeAnswers, data]);
+      if (error) {
+        console.error("Erreur lors de l'insertion:", error);
+        
+        // Si c'est une erreur RLS, afficher un message plus clair
+        if (error.message.includes("row-level security")) {
+          setError("❌ Problème de permissions. Veuillez vérifier les politiques RLS dans Supabase ou contacter l'administrateur.");
+          return;
+        }
+        
+        // Si c'est une erreur de contrainte d'unicité
+        if (error.message.includes("duplicate key value violates unique constraint")) {
+          setError("❌ Ce joueur existe déjà dans ce thème. Veuillez rafraîchir la page et réessayer.");
+          return;
+        }
+        
+        throw error;
+      }
+      
+      console.log("Réponse insérée avec succès:", data.id);
+      
+      // 4. Mettre à jour l'état local avec les vraies données
+      const newAnswerWithStats = {
+        ...data,
+        players: {
+          nationality: playerStats.nationality
+        }
+      };
+      
+      setThemeAnswers(prevAnswers => [...prevAnswers, newAnswerWithStats]);
+      
+      // Nettoyer les champs
       setNewAnswer({ answer: "" });
+      setAnswerSearch("");
+      
     } catch (e: any) {
-      setError(e.message);
+      console.error("Erreur lors de l'ajout de la réponse:", e);
+      setError(`❌ Erreur: ${e.message}`);
     }
   };
 
-  const deleteAnswer = async (answerId: string) => {
+  const deleteAnswer = async (answerId: string, themeId: string) => {
     if (!window.confirm("Supprimer cette réponse ?")) return;
     
+    // Vérifier si la suppression est déjà en cours
+    if (deletingAnswers.has(answerId)) {
+      console.log("Suppression déjà en cours pour:", answerId);
+      return;
+    }
+    
+    // Vérifier si la réponse existe encore dans l'état local
+    const answerExists = themeAnswers.find(a => a.id === answerId);
+    if (!answerExists) {
+      console.log("Réponse déjà supprimée ou inexistante:", answerId);
+      return;
+    }
+    
+    // Marquer comme en cours de suppression
+    setDeletingAnswers(prev => new Set(prev).add(answerId));
+    
     try {
+      console.log("Suppression de la réponse:", answerId);
+      
       const { error } = await supabase
         .from("theme_answers")
         .delete()
         .eq("id", answerId);
       
-      if (error) throw error;
-      setThemeAnswers(themeAnswers.filter(a => a.id !== answerId));
+      if (error) {
+        console.error("Erreur Supabase lors de la suppression:", error);
+        throw error;
+      }
+      
+      console.log("Suppression réussie en base de données");
+      
+      // Mettre à jour l'état local immédiatement avec une fonction pour éviter les race conditions
+      setThemeAnswers(prevAnswers => {
+        const updatedAnswers = prevAnswers.filter(a => a.id !== answerId);
+        console.log("État local mis à jour. Réponses restantes:", updatedAnswers.length);
+        return updatedAnswers;
+      });
+      
     } catch (e: any) {
+      console.error("Erreur lors de la suppression:", e);
       setError(e.message);
+    } finally {
+      // Retirer de la liste des suppressions en cours
+      setDeletingAnswers(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(answerId);
+        return newSet;
+      });
     }
   };
 
@@ -238,13 +689,17 @@ export function Admin() {
     try {
       const { data, error } = await supabase
         .from("players")
-        .insert([newPlayer])
+        .insert([{
+          name: newPlayer.name,
+          nationality: newPlayer.nationality || null
+        }])
         .select()
         .single();
       
       if (error) throw error;
       setPlayers([...players, data].sort((a, b) => a.name.localeCompare(b.name)));
-      setNewPlayer({ name: "" });
+      setNewPlayer({ name: "", nationality: "" });
+      setNationalitySearch("");
     } catch (e: any) {
       setError(e.message);
     }
@@ -254,12 +709,13 @@ export function Admin() {
     try {
       const { error } = await supabase
         .from("players")
-        .update({ name: player.name })
+        .update({ name: player.name, nationality: player.nationality || null })
         .eq("id", player.id);
       
       if (error) throw error;
       setPlayers(players.map(p => p.id === player.id ? player : p).sort((a, b) => a.name.localeCompare(b.name)));
       setEditingPlayer(null);
+      setEditingNationalitySearch("");
     } catch (e: any) {
       setError(e.message);
     }
@@ -291,11 +747,11 @@ export function Admin() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-400 to-red-400 p-4">
+    <div className="min-h-screen bg-soccer-pattern p-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-6 mb-6">
-          <h1 className="text-4xl font-black text-center bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
+        <div className="bg-white/90 backdrop-blur rounded-2xl shadow-xl p-6 mb-6">
+          <h1 className="text-4xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary mb-4">
             🛠️ PANEL ADMIN 🛠️
           </h1>
           {/* 🔐 Indicateur d'admin */}
@@ -338,8 +794,22 @@ export function Admin() {
 
         {/* Erreur */}
         {error && (
-          <div className="bg-red-500 text-white p-4 rounded-2xl mb-6 text-center font-bold">
-            ❌ {error}
+          <div className="bg-red-500 text-white p-4 rounded-2xl mb-6">
+            <div className="text-center font-bold mb-2">
+              ❌ {error}
+            </div>
+            {error.includes("politiques RLS") && (
+              <div className="text-sm bg-red-600 p-3 rounded-lg mt-2">
+                <p className="font-semibold mb-2">💡 Solution :</p>
+                <ol className="text-left space-y-1">
+                  <li>1. Allez dans l'interface Supabase</li>
+                  <li>2. Table Editor → theme_answers</li>
+                  <li>3. Settings → RLS Policies</li>
+                  <li>4. Créez une politique permettant l'INSERT pour les utilisateurs authentifiés</li>
+                  <li>5. Ou temporairement désactivez RLS sur cette table</li>
+                </ol>
+              </div>
+            )}
           </div>
         )}
 
@@ -566,33 +1036,106 @@ export function Admin() {
                         <div className="mt-4 p-4 bg-gray-50 rounded-xl">
                           <h4 className="font-bold text-gray-700 mb-2">Réponses ({themeAnswers.length})</h4>
                           <div className="space-y-2">
-                            {themeAnswers.map((answer) => (
-                              <div key={answer.id} className="flex justify-between items-center bg-white p-2 rounded-lg">
-                                <span className="font-semibold">{answer.answer}</span>
-                                <button
-                                  onClick={() => deleteAnswer(answer.id)}
-                                  className="text-red-500 hover:text-red-700 font-bold"
-                                >
-                                  ❌
-                                </button>
-                              </div>
-                            ))}
+                            {themeAnswers.map((answer, index) => {
+                              const flag = getCountryFlag(answer.players?.nationality || '');
+                              const statValue = getStatisticValue(answer, theme.slug);
+                              const statUnit = getStatisticUnit(theme.slug);
+                              
+                              return (
+                                <div key={answer.id} className="flex justify-between items-center bg-white p-3 rounded-lg border-l-4 border-blue-400">
+                                  <div className="flex items-center gap-3 flex-1">
+                                    <span className="text-lg font-bold text-blue-600 min-w-[2rem]">
+                                      {answer.ranking || (index + 1)}.
+                                    </span>
+                                    <span className="text-lg">
+                                      {flag}
+                                    </span>
+                                    <span className="font-semibold text-gray-800 flex-1">
+                                      {answer.answer}
+                                    </span>
+                                    {statValue && (
+                                      <span className="text-sm font-semibold text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                                        {statValue} {statUnit}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <button
+                                    onClick={() => deleteAnswer(answer.id, theme.id)}
+                                    disabled={deletingAnswers.has(answer.id)}
+                                    className={`font-bold ml-2 ${
+                                      deletingAnswers.has(answer.id)
+                                        ? "text-gray-400 cursor-not-allowed"
+                                        : "text-red-500 hover:text-red-700"
+                                    }`}
+                                  >
+                                    {deletingAnswers.has(answer.id) ? "⏳" : "❌"}
+                                  </button>
+                                </div>
+                              );
+                            })}
                           </div>
                           <div className="flex gap-2 mt-3">
+                            <div className="flex-1 relative">
+                              <input
+                                type="text"
+                                placeholder="Rechercher un joueur..."
+                                value={answerSearch}
+                                onChange={(e) => setAnswerSearch(e.target.value)}
+                                className="w-full border-2 border-gray-300 rounded-lg px-3 py-1 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                              />
+                              {answerSearch && getPlayerSuggestions(answerSearch, players, themeAnswers).length > 0 && (
+                                <div className="absolute z-10 w-full mt-1 bg-white border-2 border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                  {getPlayerSuggestions(answerSearch, players, themeAnswers).map((player) => (
+                                    <div
+                                      key={player.id}
+                                      onClick={() => {
+                                        setNewAnswer({ answer: player.name });
+                                        setAnswerSearch("");
+                                      }}
+                                      className="flex items-center gap-2 px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                                    >
+                                      <span className="text-lg">{getCountryFlag(player.nationality || '')}</span>
+                                      <span className="font-semibold">{player.name}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                             <input
                               type="text"
-                              placeholder="Nouvelle réponse"
+                              placeholder="Ou saisir manuellement"
                               value={newAnswer.answer}
                               onChange={(e) => setNewAnswer({ answer: e.target.value })}
-                              className="flex-1 border-2 border-gray-300 rounded-lg px-3 py-1"
+                              className="flex-1 border-2 border-gray-300 rounded-lg px-3 py-1 focus:border-green-500 focus:ring-2 focus:ring-green-200"
                             />
                             <button
                               onClick={() => addAnswer(theme.id)}
-                              className="px-4 py-1 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600"
+                              disabled={!newAnswer.answer}
+                              className="px-4 py-1 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
                             >
                               Ajouter
                             </button>
                           </div>
+                          {newAnswer.answer && (
+                            <div className="mt-2 flex items-center gap-2 p-2 bg-blue-50 rounded-lg">
+                              <span className="text-lg">
+                                {(() => {
+                                  const player = players.find(p => p.name.toLowerCase() === newAnswer.answer.toLowerCase());
+                                  return player ? getCountryFlag(player.nationality || '') : '👤';
+                                })()}
+                              </span>
+                              <span className="font-semibold text-blue-700">{newAnswer.answer}</span>
+                              <button
+                                onClick={() => {
+                                  setNewAnswer({ answer: "" });
+                                  setAnswerSearch("");
+                                }}
+                                className="ml-auto text-red-500 hover:text-red-700 font-bold text-sm"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -609,21 +1152,67 @@ export function Admin() {
             {/* Créer un joueur */}
             <div className="bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-6">
               <h2 className="text-2xl font-black text-green-600 mb-4">➕ Nouveau Joueur</h2>
-              <div className="flex gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <input
                   type="text"
                   placeholder="Nom du joueur"
                   value={newPlayer.name}
-                  onChange={(e) => setNewPlayer({ name: e.target.value })}
-                  className="flex-1 border-2 border-green-300 rounded-xl px-4 py-2 focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                  onChange={(e) => setNewPlayer({ ...newPlayer, name: e.target.value })}
+                  className="border-2 border-green-300 rounded-xl px-4 py-2 focus:border-green-500 focus:ring-2 focus:ring-green-200"
                 />
-                <button
-                  onClick={createPlayer}
-                  className="px-6 py-2 bg-gradient-to-r from-green-500 to-blue-500 text-white font-bold rounded-xl hover:from-green-600 hover:to-blue-600 transition-all"
-                >
-                  Ajouter
-                </button>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Rechercher un pays..."
+                    value={nationalitySearch}
+                    onChange={(e) => setNationalitySearch(e.target.value)}
+                    className="w-full border-2 border-green-300 rounded-xl px-4 py-2 focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                  />
+                  {nationalitySearch && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border-2 border-green-300 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                      {getAvailableCountries()
+                        .filter(country => 
+                          country.toLowerCase().includes(nationalitySearch.toLowerCase())
+                        )
+                        .slice(0, 10)
+                        .map(country => (
+                          <div
+                            key={country}
+                            onClick={() => {
+                              setNewPlayer({ ...newPlayer, nationality: country });
+                              setNationalitySearch("");
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 hover:bg-green-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                          >
+                            <span className="text-lg">{getCountryFlag(country)}</span>
+                            <span className="font-semibold">{country}</span>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
               </div>
+              {newPlayer.nationality && (
+                <div className="mt-3 flex items-center gap-2 p-2 bg-green-50 rounded-lg">
+                  <span className="text-lg">{getCountryFlag(newPlayer.nationality)}</span>
+                  <span className="font-semibold text-green-700">{newPlayer.nationality}</span>
+                  <button
+                    onClick={() => {
+                      setNewPlayer({ ...newPlayer, nationality: "" });
+                      setNationalitySearch("");
+                    }}
+                    className="ml-auto text-red-500 hover:text-red-700 font-bold"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+              <button
+                onClick={createPlayer}
+                className="mt-4 px-6 py-2 bg-gradient-to-r from-green-500 to-blue-500 text-white font-bold rounded-xl hover:from-green-600 hover:to-blue-600 transition-all"
+              >
+                Ajouter
+              </button>
             </div>
 
             {/* Liste des joueurs */}
@@ -636,10 +1225,57 @@ export function Admin() {
                       <div className="space-y-3">
                         <input
                           type="text"
+                          placeholder="Nom du joueur"
                           value={editingPlayer.name}
                           onChange={(e) => setEditingPlayer({ ...editingPlayer, name: e.target.value })}
                           className="w-full border-2 border-green-300 rounded-xl px-3 py-2"
                         />
+                        <div className="relative">
+                          <input
+                            type="text"
+                            placeholder="Rechercher un pays..."
+                            value={editingNationalitySearch}
+                            onChange={(e) => setEditingNationalitySearch(e.target.value)}
+                            className="w-full border-2 border-green-300 rounded-xl px-3 py-2"
+                          />
+                          {editingNationalitySearch && (
+                            <div className="absolute z-10 w-full mt-1 bg-white border-2 border-green-300 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                              {getAvailableCountries()
+                                .filter(country => 
+                                  country.toLowerCase().includes(editingNationalitySearch.toLowerCase())
+                                )
+                                .slice(0, 10)
+                                .map(country => (
+                                  <div
+                                    key={country}
+                                    onClick={() => {
+                                      setEditingPlayer({ ...editingPlayer, nationality: country });
+                                      setEditingNationalitySearch("");
+                                    }}
+                                    className="flex items-center gap-2 px-3 py-2 hover:bg-green-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                                  >
+                                    <span className="text-lg">{getCountryFlag(country)}</span>
+                                    <span className="font-semibold text-sm">{country}</span>
+                                  </div>
+                                ))}
+                            </div>
+                          )}
+                        </div>
+                        {editingPlayer.nationality && (
+                          <div className="flex items-center gap-2 p-2 bg-green-50 rounded-lg">
+                            <span className="text-lg">{getCountryFlag(editingPlayer.nationality)}</span>
+                            <span className="font-semibold text-green-700 text-sm">{editingPlayer.nationality}</span>
+                            <button
+                              onClick={() => {
+                                setEditingPlayer({ ...editingPlayer, nationality: "" });
+                                setEditingNationalitySearch("");
+                              }}
+                              className="ml-auto text-red-500 hover:text-red-700 font-bold text-sm"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        )}
                         <div className="flex gap-2">
                           <button
                             onClick={() => updatePlayer(editingPlayer)}
@@ -648,7 +1284,10 @@ export function Admin() {
                             ✓
                           </button>
                           <button
-                            onClick={() => setEditingPlayer(null)}
+                            onClick={() => {
+                              setEditingPlayer(null);
+                              setEditingNationalitySearch("");
+                            }}
                             className="px-3 py-1 bg-gray-500 text-white font-bold rounded-lg hover:bg-gray-600"
                           >
                             ✗
@@ -656,10 +1295,26 @@ export function Admin() {
                         </div>
                       </div>
                     ) : (
-                      <div className="flex justify-between items-center">
-                        <div>
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
                           <h3 className="font-bold text-gray-800">{player.name}</h3>
-                          <p className="text-xs text-gray-500">
+                          <div className="flex items-center gap-2 mt-1">
+                            {player.nationality ? (
+                              <>
+                                <span className="text-lg">
+                                  {getCountryFlag(player.nationality)}
+                                </span>
+                                <span className="text-sm text-gray-600 font-semibold">
+                                  {player.nationality}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-sm text-gray-400 italic">
+                                Aucune nationalité
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500 mt-2">
                             Ajouté le {new Date(player.created_at).toLocaleDateString('fr-FR')}
                           </p>
                         </div>

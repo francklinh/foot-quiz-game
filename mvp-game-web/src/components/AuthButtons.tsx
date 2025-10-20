@@ -24,10 +24,10 @@ export function AuthButtons() {
   // Si connecté
   if (userEmail) {
     return (
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-gray-600">Connecté : {userEmail}</span>
+      <div className="flex items-center gap-3">
+        <span className="text-sm text-accent font-medium">Connecté : {userEmail}</span>
         <button
-          className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300"
+          className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-dark text-white font-medium transition-colors duration-200 shadow-lg"
           onClick={() => supabase.auth.signOut()}
         >
           Se déconnecter
@@ -39,7 +39,7 @@ export function AuthButtons() {
   // Si non connecté
   return (
     <form
-      className="flex items-center gap-2"
+      className="flex items-center gap-3"
       onSubmit={async (e) => {
         e.preventDefault();
         const { error } = await supabase.auth.signInWithOtp({ email });
@@ -52,12 +52,12 @@ export function AuthButtons() {
         placeholder="email@exemple.com"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        className="border px-2 py-1 rounded"
+        className="px-4 py-2 rounded-lg border-2 border-primary/20 bg-accent text-text placeholder-text/50 focus:outline-none focus:border-primary transition-colors duration-200"
         required
       />
       <button
         type="submit"
-        className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
+        className="px-4 py-2 rounded-lg bg-secondary hover:bg-secondary-dark text-text font-medium transition-colors duration-200 shadow-lg"
       >
         Se connecter
       </button>

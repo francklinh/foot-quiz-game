@@ -1,18 +1,15 @@
 import { useState } from "react";
 
-export function CherryCounter() {
-  // Déclaration du state : count = valeur actuelle, setCount = fonction pour la changer
-  const [count, setCount] = useState(0);
+type CherryCounterProps = {
+  count: number;
+  className?: string;
+};
 
+export function CherryCounter({ count, className = "" }: CherryCounterProps) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-xl">🍒 {count}</span>
-      <button
-        onClick={() => setCount(count + 1)}
-        className="bg-red-500 text-white px-3 py-1 rounded"
-      >
-        +1
-      </button>
+    <div className={`flex items-center gap-3 bg-white/20 backdrop-blur rounded-xl px-4 py-2 shadow-lg ${className}`}>
+      <div className="text-2xl animate-bounce-slow">🍒</div>
+      <div className="text-white font-bold text-xl">{count}</div>
     </div>
   );
 }

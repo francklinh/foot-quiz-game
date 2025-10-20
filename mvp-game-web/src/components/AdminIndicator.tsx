@@ -14,8 +14,8 @@ export function AdminIndicator() {
   }
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
-      <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+    <div className="flex items-center gap-2 px-3 py-1 bg-secondary/20 text-secondary-dark rounded-full text-xs font-semibold border border-secondary/30">
+      <span className="w-2 h-2 bg-secondary rounded-full animate-pulse"></span>
       Admin
     </div>
   );
