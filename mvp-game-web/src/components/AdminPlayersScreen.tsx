@@ -1,6 +1,33 @@
 // src/components/AdminPlayersScreen.tsx
 import React, { useState, useEffect } from 'react';
-import { AdminPlayersService, Player, PlayerFilters, ClubHistory } from '../services/admin-players.service';
+import { supabaseLocalService } from '../services/supabase-local.service';
+
+// Types pour les joueurs
+interface Player {
+  id: string;
+  name: string;
+  nationality: string;
+  position: string;
+  current_club: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface PlayerFilters {
+  search: string;
+  nationality: string;
+  position: string;
+  club: string;
+}
+
+interface ClubHistory {
+  id: string;
+  player_id: string;
+  club_name: string;
+  start_date: string;
+  end_date: string;
+  is_current: boolean;
+}
 import { PlayerPosition, Nationality } from '../services/admin-constants';
 import { VALID_POSITIONS, VALID_NATIONALITIES } from '../services/admin-constants';
 
@@ -31,7 +58,7 @@ export function AdminPlayersScreen({ className = '' }: AdminPlayersScreenProps) 
   });
   const [formErrors, setFormErrors] = useState<string[]>([]);
 
-  const playersService = new AdminPlayersService();
+  // Utilisation du service local Supabase
 
   useEffect(() => {
     loadPlayers();
@@ -45,7 +72,7 @@ export function AdminPlayersScreen({ className = '' }: AdminPlayersScreenProps) 
     setLoading(true);
     setError(null);
     try {
-      const data = await playersService.getPlayers();
+      const data = await supabaseLocalService.getPlayers();
       setPlayers(data);
     } catch (err: any) {
       setError('Erreur lors du chargement des joueurs');
@@ -94,7 +121,7 @@ export function AdminPlayersScreen({ className = '' }: AdminPlayersScreenProps) 
     }
 
     try {
-      await playersService.createPlayer(formData);
+      await supabaseLocalService.createPlayer(formData);
       setShowCreateModal(false);
       setFormData({ name: '', position: 'Attaquant' as PlayerPosition, nationality: 'France' as Nationality, current_club: '', club_history: [], is_active: true, is_verified: false });
       setFormErrors([]);
@@ -116,7 +143,7 @@ export function AdminPlayersScreen({ className = '' }: AdminPlayersScreenProps) 
     }
 
     try {
-      await playersService.updatePlayer(selectedPlayer.id, formData);
+      await supabaseLocalService.updatePlayer(selectedPlayer.id, formData);
       setShowEditModal(false);
       setSelectedPlayer(null);
       setFormData({ name: '', position: 'Attaquant' as PlayerPosition, nationality: 'France' as Nationality, current_club: '', club_history: [], is_active: true, is_verified: false });
@@ -132,7 +159,7 @@ export function AdminPlayersScreen({ className = '' }: AdminPlayersScreenProps) 
     if (!selectedPlayer) return;
     
     try {
-      await playersService.deletePlayer(selectedPlayer.id);
+      await supabaseLocalService.deletePlayer(selectedPlayer.id);
       setShowDeleteModal(false);
       setSelectedPlayer(null);
       loadPlayers();

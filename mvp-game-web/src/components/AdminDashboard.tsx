@@ -5,11 +5,11 @@ import { AdminPlayersScreen } from './AdminPlayersScreen';
 import { AdminQuestionsScreen } from './AdminQuestionsScreen';
 import { SupabaseConnectionTest } from './SupabaseConnectionTest';
 import { AdminFetchTest } from './AdminFetchTest';
+import { CorsTest } from './CorsTest';
+import { SimpleSupabaseTest } from './SimpleSupabaseTest';
 import { SimpleConnectionTest } from './SimpleConnectionTest';
 import { SupabaseSimpleTest } from './SupabaseSimpleTest';
-import { AdminGamesService } from '../services/admin-games.service';
-import { AdminPlayersService } from '../services/admin-players.service';
-import { AdminQuestionsService } from '../services/admin-questions.service';
+import { supabaseLocalService } from '../services/supabase-local.service';
 
 interface AdminDashboardProps {
   className?: string;
@@ -35,9 +35,7 @@ export function AdminDashboard({ className = '' }: AdminDashboardProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const gamesService = new AdminGamesService();
-  const playersService = new AdminPlayersService();
-  const questionsService = new AdminQuestionsService();
+  // Utilisation du service local Supabase
 
   useEffect(() => {
     loadDashboardStats();
@@ -48,20 +46,8 @@ export function AdminDashboard({ className = '' }: AdminDashboardProps) {
     setError(null);
     
     try {
-      const [games, players, questions] = await Promise.all([
-        gamesService.getGameTypes(),
-        playersService.getPlayers(),
-        questionsService.getQuestions()
-      ]);
-
-      const activeQuestions = questions.filter(q => q.is_active).length;
-
-      setStats({
-        totalGames: games.length,
-        totalPlayers: players.length,
-        totalQuestions: questions.length,
-        activeQuestions
-      });
+      const stats = await supabaseLocalService.getStats();
+      setStats(stats);
     } catch (err: any) {
       setError('Erreur lors du chargement des statistiques');
       console.error('Failed to load dashboard stats:', err);
@@ -150,10 +136,12 @@ export function AdminDashboard({ className = '' }: AdminDashboardProps) {
       {/* Statistics Cards */}
       {/* Tests de Connexion Supabase */}
       <div className="mb-8 space-y-4">
+        <SimpleSupabaseTest />
         <SimpleConnectionTest />
         <SupabaseSimpleTest />
         <SupabaseConnectionTest />
         <AdminFetchTest />
+        <CorsTest />
       </div>
 
       <div className="mb-8">

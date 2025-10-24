@@ -1,6 +1,27 @@
 // src/components/AdminGamesScreen.tsx
 import React, { useState, useEffect } from 'react';
-import { AdminGamesService, GameType, GameConfiguration } from '../services/admin-games.service';
+import { supabaseLocalService } from '../services/supabase-local.service';
+
+// Types pour les jeux
+interface GameType {
+  id: string;
+  name: string;
+  description: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+interface GameConfiguration {
+  id: string;
+  game_type_id: string;
+  name: string;
+  description: string;
+  configuration: any;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
 
 interface AdminGamesScreenProps {
   className?: string;
@@ -23,7 +44,7 @@ export function AdminGamesScreen({ className = '' }: AdminGamesScreenProps) {
     scoring_system: ''
   });
 
-  const gamesService = new AdminGamesService();
+  // Utilisation du service local Supabase
 
   useEffect(() => {
     loadData();
@@ -34,11 +55,21 @@ export function AdminGamesScreen({ className = '' }: AdminGamesScreenProps) {
     setError(null);
     try {
       if (activeTab === 'types') {
-        const data = await gamesService.getGameTypes();
+        const data = await supabaseLocalService.getGameTypes();
         setGameTypes(data);
       } else {
-        const data = await gamesService.getGameConfigurations();
-        setConfigurations(data);
+        // Pour les configurations, on utilise les questions pour l'instant
+        const data = await supabaseLocalService.getQuestions();
+        setConfigurations(data.map((q: any) => ({
+          id: q.id,
+          game_type_id: q.game_type_id || 'TOP10',
+          name: q.content?.question || 'Question',
+          description: q.content?.description || '',
+          configuration: q.content,
+          is_active: q.is_active,
+          created_at: q.created_at,
+          updated_at: q.updated_at
+        })));
       }
     } catch (err: any) {
       setError(`Erreur lors du chargement des ${activeTab === 'types' ? 'types de jeux' : 'configurations'}`);
@@ -51,7 +82,11 @@ export function AdminGamesScreen({ className = '' }: AdminGamesScreenProps) {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await gamesService.createGameType(formData);
+      await supabaseLocalService.createGameType({
+        name: formData.name,
+        description: formData.description,
+        is_active: true
+      });
       setShowCreateModal(false);
       setFormData({ name: '', description: '', rules: '', scoring_system: '' });
       loadData();
@@ -66,7 +101,11 @@ export function AdminGamesScreen({ className = '' }: AdminGamesScreenProps) {
     if (!selectedItem) return;
     
     try {
-      await gamesService.updateGameType(selectedItem.id, formData);
+      await supabaseLocalService.updateGameType(selectedItem.id, {
+        name: formData.name,
+        description: formData.description,
+        is_active: true
+      });
       setShowEditModal(false);
       setSelectedItem(null);
       setFormData({ name: '', description: '', rules: '', scoring_system: '' });
@@ -81,7 +120,7 @@ export function AdminGamesScreen({ className = '' }: AdminGamesScreenProps) {
     if (!selectedItem) return;
     
     try {
-      await gamesService.deleteGameType(selectedItem.id);
+      await supabaseLocalService.deleteGameType(selectedItem.id);
       setShowDeleteModal(false);
       setSelectedItem(null);
       loadData();

@@ -1,6 +1,30 @@
 // src/components/AdminQuestionsScreen.tsx
 import React, { useState, useEffect } from 'react';
-import { AdminQuestionsService, Question, GridAnswer, QuestionFilters } from '../services/admin-questions.service';
+import { supabaseLocalService } from '../services/supabase-local.service';
+
+// Types pour les questions
+interface Question {
+  id: string;
+  game_type_id: string;
+  content: any;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+interface GridAnswer {
+  id: string;
+  question_id: string;
+  player_id: string;
+  position: { row: number; col: number };
+  created_at: string;
+}
+
+interface QuestionFilters {
+  search: string;
+  gameType: string;
+  isActive: boolean | null;
+}
 import { GameTypeEnum, Difficulty } from '../services/admin-constants';
 import { VALID_GAME_TYPES, VALID_DIFFICULTIES } from '../services/admin-constants';
 
@@ -33,7 +57,7 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
   });
   const [formErrors, setFormErrors] = useState<string[]>([]);
 
-  const questionsService = new AdminQuestionsService();
+  // Utilisation du service local Supabase
 
   useEffect(() => {
     loadData();
@@ -48,10 +72,10 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
     setError(null);
     try {
       if (activeTab === 'questions') {
-        const data = await questionsService.getQuestions();
+        const data = await supabaseLocalService.getQuestions();
         setQuestions(data);
       } else {
-        const data = await questionsService.getGridAnswers('default');
+        const data = await supabaseLocalService.getGridAnswers();
         setGridAnswers(data);
       }
     } catch (err: any) {
@@ -101,7 +125,7 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
     }
 
     try {
-      await questionsService.createQuestion(formData);
+      await supabaseLocalService.createQuestion(formData);
       setShowCreateModal(false);
       setFormData({ title: '', description: '', game_type: 'TOP10' as GameTypeEnum, difficulty: 'medium' as Difficulty, time_limit: 300, max_attempts: 3, is_active: true });
       setFormErrors([]);
@@ -123,7 +147,7 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
     }
 
     try {
-      await questionsService.updateQuestion(selectedItem.id, formData);
+      await supabaseLocalService.updateQuestion(selectedItem.id, formData);
       setShowEditModal(false);
       setSelectedItem(null);
       setFormData({ title: '', description: '', game_type: 'TOP10' as GameTypeEnum, difficulty: 'medium' as Difficulty, time_limit: 300, max_attempts: 3, is_active: true });
@@ -139,7 +163,7 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
     if (!selectedItem) return;
     
     try {
-      await questionsService.deleteQuestion(selectedItem.id);
+      await supabaseLocalService.deleteQuestion(selectedItem.id);
       setShowDeleteModal(false);
       setSelectedItem(null);
       loadData();
