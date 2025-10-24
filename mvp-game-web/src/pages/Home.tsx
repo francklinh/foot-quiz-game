@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { FloatingBall } from "../components/FloatingBall";
+import { AdminIndicator } from "../components/AdminIndicator";
 
 export function Home() {
   const location = useLocation();
@@ -64,6 +65,11 @@ export function Home() {
             Choisissez votre jeu préféré
           </p>
         </div>
+        {/* Lien Admin pour les administrateurs */}
+        <div className="mb-6 flex justify-center">
+          <AdminIndicator />
+        </div>
+
         <div className="grid grid-cols-2 gap-6">
           {gameModules.map((module, index) => (
             <div

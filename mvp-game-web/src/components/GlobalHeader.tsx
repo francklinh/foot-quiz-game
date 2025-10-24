@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import logo from "../logo.svg";
 import { supabase } from "../lib/supabase";
+import { AdminIndicator } from "./AdminIndicator";
 
 type GlobalHeaderProps = {
   showProfile?: boolean;
@@ -50,10 +51,13 @@ export function GlobalHeader({ showProfile = true }: GlobalHeaderProps) {
     <header className="bg-primary text-white shadow-lg h-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full">
         <div className="flex items-center justify-between h-full">
-          {/* Gauche - Compteur Clafoutis */}
-          <div className="flex items-center space-x-2">
-            <span className="text-2xl">🍕</span>
-            <span className="text-lg font-bold">{clafoutis}</span>
+          {/* Gauche - Compteur Clafoutis et Admin */}
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <span className="text-2xl">🍕</span>
+              <span className="text-lg font-bold">{clafoutis}</span>
+            </div>
+            <AdminIndicator />
           </div>
 
           {/* Centre - Logo CLAFOOTIX */}
