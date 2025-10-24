@@ -48,10 +48,12 @@ interface AdminQuestionsScreenProps {
 }
 
 export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenProps) {
-  const [activeTab, setActiveTab] = useState<'questions' | 'gridAnswers'>('questions');
+  const [activeTab, setActiveTab] = useState<'questions' | 'gridAnswers' | 'questionAnswers'>('questions');
   const [questions, setQuestions] = useState<Question[]>([]);
   const [gridAnswers, setGridAnswers] = useState<GridAnswer[]>([]);
+  const [questionAnswers, setQuestionAnswers] = useState<any[]>([]);
   const [filteredQuestions, setFilteredQuestions] = useState<Question[]>([]);
+  const [selectedQuestionId, setSelectedQuestionId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -89,12 +91,19 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
       if (activeTab === 'questions') {
         const data = await supabaseLocalService.getQuestions();
         setQuestions(data);
-      } else {
+      } else if (activeTab === 'gridAnswers') {
         const data = await supabaseLocalService.getGridAnswers();
         setGridAnswers(data);
+      } else if (activeTab === 'questionAnswers') {
+        if (selectedQuestionId) {
+          const data = await supabaseLocalService.getQuestionAnswersWithPlayers(selectedQuestionId);
+          setQuestionAnswers(data);
+        } else {
+          setQuestionAnswers([]);
+        }
       }
     } catch (err: any) {
-      setError(`Erreur lors du chargement des ${activeTab === 'questions' ? 'questions' : 'réponses grille'}`);
+      setError(`Erreur lors du chargement des ${activeTab === 'questions' ? 'questions' : activeTab === 'gridAnswers' ? 'réponses grille' : 'réponses questions'}`);
       console.error(err);
     } finally {
       setLoading(false);
@@ -290,6 +299,16 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
               Questions
             </button>
             <button
+              onClick={() => setActiveTab('questionAnswers')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'questionAnswers'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Réponses Questions
+            </button>
+            <button
               onClick={() => setActiveTab('gridAnswers')}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'gridAnswers'
@@ -433,6 +452,97 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
           {filteredQuestions.length === 0 && !loading && (
             <div className="text-center py-8 text-gray-500">
               Aucune question trouvée
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'questionAnswers' && (
+        <div>
+          <div className="mb-4 flex justify-between items-center">
+            <h2 className="text-xl font-semibold">Réponses Questions (TOP 10 & CLUB)</h2>
+            <div className="flex space-x-4">
+              <select
+                value={selectedQuestionId}
+                onChange={(e) => {
+                  setSelectedQuestionId(e.target.value);
+                  if (e.target.value) {
+                    loadData();
+                  }
+                }}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">Sélectionner une question</option>
+                {questions
+                  .filter(q => q.game_type_id === 'TOP10' || q.game_type_id === 'CLUB')
+                  .map((question) => (
+                    <option key={question.id} value={question.id}>
+                      {question.content?.question || question.title || 'Question'} ({question.game_type_id})
+                    </option>
+                  ))}
+              </select>
+              {selectedQuestionId && (
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark transition-colors"
+                >
+                  Ajouter une Réponse
+                </button>
+              )}
+            </div>
+          </div>
+
+          {selectedQuestionId ? (
+            <div className="grid gap-4">
+              {questionAnswers.map((answer) => (
+                <div key={answer.id} className="bg-white p-4 rounded-lg shadow border">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="text-lg font-semibold text-primary">
+                        {answer.players?.name || 'Joueur inconnu'}
+                      </h3>
+                      <div className="mt-2 text-sm text-text-muted space-y-1">
+                        {answer.ranking && (
+                          <p><strong>Classement:</strong> {answer.ranking}</p>
+                        )}
+                        {answer.points && (
+                          <p><strong>Points:</strong> {answer.points}</p>
+                        )}
+                        {answer.is_correct !== undefined && (
+                          <p><strong>Correct:</strong> {answer.is_correct ? 'Oui' : 'Non'}</p>
+                        )}
+                        <p><strong>Club actuel:</strong> {answer.players?.current_club || 'Non défini'}</p>
+                        <p><strong>Nationalité:</strong> {answer.players?.nationality || 'Non définie'}</p>
+                      </div>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => openEditModal(answer)}
+                        className="text-blue-600 hover:text-blue-800"
+                        aria-label={`Modifier réponse ${answer.players?.name}`}
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={() => openDeleteModal(answer)}
+                        className="text-red-600 hover:text-red-800"
+                        aria-label={`Supprimer réponse ${answer.players?.name}`}
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {questionAnswers.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  Aucune réponse trouvée pour cette question.
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              Sélectionnez une question pour voir ses réponses.
             </div>
           )}
         </div>

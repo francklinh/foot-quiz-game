@@ -153,6 +153,47 @@ class SupabaseLocalService {
     });
   }
 
+  // Question Answers (TOP 10 et CLUB)
+  async getQuestionAnswers(questionId?: string) {
+    const endpoint = questionId 
+      ? `question_answers?question_id=eq.${questionId}&select=*&order=ranking.asc`
+      : 'question_answers?select=*&order=created_at.desc';
+    return this.request(endpoint);
+  }
+
+  async getQuestionAnswer(id: string) {
+    const result = await this.request(`question_answers?id=eq.${id}&select=*`);
+    return result[0] || null;
+  }
+
+  async createQuestionAnswer(data: any) {
+    return this.request('question_answers', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async updateQuestionAnswer(id: string, data: any) {
+    return this.request(`question_answers?id=eq.${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async deleteQuestionAnswer(id: string) {
+    return this.request(`question_answers?id=eq.${id}`, {
+      method: 'DELETE'
+    });
+  }
+
+  async getQuestionAnswersWithPlayers(questionId: string) {
+    return this.request(`
+      question_answers?question_id=eq.${questionId}
+      &select=*,players(name,current_club,nationality)
+      &order=ranking.asc
+    `);
+  }
+
   // Statistics
   async getStats() {
     const [games, players, questions] = await Promise.all([
