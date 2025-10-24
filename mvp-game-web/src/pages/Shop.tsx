@@ -1,226 +1,308 @@
-import { useState } from "react";
-import { GlobalHeader } from "../components/GlobalHeader";
-import { FloatingBall } from "../components/FloatingBall";
-
-type ShopItem = {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  category: 'avatar' | 'theme' | 'powerup';
-  icon: string;
-  owned: boolean;
-};
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { ShopService, ShopItem, ShopCategory, ItemCategory, UserPurchase } from '../services/shop.service';
+import { CerisesService } from '../services/cerises.service';
+import { ShopItemCard } from '../components/ShopItemCard';
+import { ShopCategoryFilter } from '../components/ShopCategoryFilter';
+import { ShopPurchaseHistory } from '../components/ShopPurchaseHistory';
 
 export function Shop() {
-  const [clafoutis, setClafoutis] = useState(1250);
-  const [items, setItems] = useState<ShopItem[]>([
-    {
-      id: '1',
-      name: 'Avatar Légendaire',
-      description: 'Un avatar doré exclusif',
-      price: 500,
-      category: 'avatar',
-      icon: '👑',
-      owned: false
-    },
-    {
-      id: '2',
-      name: 'Maillot PSG',
-      description: 'Maillot officiel du Paris Saint-Germain',
-      price: 300,
-      category: 'theme',
-      icon: '👕',
-      owned: false
-    },
-    {
-      id: '3',
-      name: 'Bonus Temps',
-      description: '+30 secondes pour votre prochaine partie',
-      price: 150,
-      category: 'powerup',
-      icon: '⏰',
-      owned: false
-    },
-    {
-      id: '4',
-      name: 'Avatar Foot',
-      description: 'Avatar ballon de foot animé',
-      price: 200,
-      category: 'avatar',
-      icon: '⚽',
-      owned: true
-    },
-    {
-      id: '5',
-      name: 'Maillot Real Madrid',
-      description: 'Maillot officiel du Real Madrid',
-      price: 350,
-      category: 'theme',
-      icon: '👕',
-      owned: false
-    },
-    {
-      id: '6',
-      name: 'Indice Gratuit',
-      description: 'Révèle une lettre dans votre prochaine partie',
-      price: 100,
-      category: 'powerup',
-      icon: '💡',
-      owned: false
-    },
-    {
-      id: '7',
-      name: 'Avatar Trophée',
-      description: 'Avatar trophée brillant',
-      price: 400,
-      category: 'avatar',
-      icon: '🏆',
-      owned: false
-    },
-    {
-      id: '8',
-      name: 'Thème Sombre',
-      description: 'Interface en mode sombre',
-      price: 250,
-      category: 'theme',
-      icon: '🌙',
-      owned: false
-    }
-  ]);
+  // Services
+  const shopService = new ShopService();
+  const cerisesService = new CerisesService();
 
-  const handlePurchase = (item: ShopItem) => {
-    if (clafoutis >= item.price && !item.owned) {
-      setClafoutis(prev => prev - item.price);
-      setItems(prev => prev.map(i => 
-        i.id === item.id ? { ...i, owned: true } : i
-      ));
-      alert(`Achat réussi ! Vous avez obtenu ${item.name} ! 🎉`);
-    } else if (item.owned) {
-      alert('Vous possédez déjà cet item ! ✅');
-    } else {
-      alert('Clafoutis insuffisants ! 🧮');
+  // Auth state
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userBalance, setUserBalance] = useState<number>(0);
+
+  // Shop state
+  const [items, setItems] = useState<ShopItem[]>([]);
+  const [categories, setCategories] = useState<ShopCategory[]>([]);
+  const [purchases, setPurchases] = useState<UserPurchase[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<ItemCategory | 'ALL'>('ALL');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'shop' | 'history'>('shop');
+
+  // Modal state
+  const [selectedItem, setSelectedItem] = useState<ShopItem | null>(null);
+  const [showModal, setShowModal] = useState(false);
+
+  // Load user authentication and balance
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          setUserId(session.user.id);
+          
+          // Load user cerises balance
+          const balance = await cerisesService.getUserCerises(session.user.id);
+          setUserBalance(balance);
+        }
+      } catch (error) {
+        console.error('Failed to load user data:', error);
+      }
+    };
+
+    loadUserData();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUserId(session.user.id);
+      } else {
+        setUserId(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Load shop data
+  useEffect(() => {
+    if (userId) {
+      loadShopData();
+      loadPurchaseHistory();
+    }
+  }, [userId]);
+
+  // Load items when category changes
+  useEffect(() => {
+    if (userId) {
+      loadItems();
+    }
+  }, [selectedCategory, userId]);
+
+  const loadShopData = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const [itemsData, categoriesData] = await Promise.all([
+        shopService.getShopItems(),
+        shopService.getShopCategories()
+      ]);
+      
+      setItems(itemsData);
+      setCategories(categoriesData);
+    } catch (err) {
+      setError('Failed to load shop data.');
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case 'avatar': return 'bg-primary';
-      case 'theme': return 'bg-secondary';
-      case 'powerup': return 'bg-accent';
-      default: return 'bg-gray-500';
+  const loadItems = async () => {
+    try {
+      const itemsData = await shopService.getShopItems(
+        selectedCategory === 'ALL' ? undefined : selectedCategory
+      );
+      setItems(itemsData);
+    } catch (err) {
+      console.error('Failed to load items:', err);
     }
   };
 
-  const getCategoryLabel = (category: string) => {
-    switch (category) {
-      case 'avatar': return 'Avatar';
-      case 'theme': return 'Thème';
-      case 'powerup': return 'Bonus';
-      default: return 'Autre';
+  const loadPurchaseHistory = async () => {
+    if (!userId) return;
+    
+    try {
+      const purchasesData = await shopService.getUserPurchases(userId);
+      setPurchases(purchasesData);
+    } catch (err) {
+      console.error('Failed to load purchase history:', err);
     }
   };
+
+  const handlePurchase = async (itemId: string) => {
+    if (!userId) return;
+    
+    try {
+      await shopService.purchaseItem(userId, itemId);
+      
+      // Refresh data
+      const newBalance = await cerisesService.getUserCerises(userId);
+      setUserBalance(newBalance);
+      loadItems();
+      loadPurchaseHistory();
+      
+      alert('Achat effectué avec succès ! 🎉');
+    } catch (err: any) {
+      alert(`Erreur lors de l'achat: ${err.message}`);
+      console.error('Purchase failed:', err);
+    }
+  };
+
+  const handleViewDetails = (item: ShopItem) => {
+    setSelectedItem(item);
+    setShowModal(true);
+  };
+
+  const filteredItems = items.filter(item => 
+    selectedCategory === 'ALL' || item.category === selectedCategory
+  );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">🛍️</div>
+          <div className="text-2xl font-bold text-primary">Chargement de la boutique...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">❌</div>
+          <div className="text-2xl font-bold text-red-500">{error}</div>
+          <button
+            onClick={loadShopData}
+            className="mt-4 bg-primary hover:bg-primary-dark text-white font-bold py-2 px-6 rounded-lg"
+          >
+            Réessayer
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-white relative">
-      {/* Motifs ballon en filigrane */}
-      <div className="absolute inset-0 opacity-5">
-        <div className="absolute top-10 left-10 w-20 h-20 bg-primary rounded-full"></div>
-        <div className="absolute top-32 right-16 w-16 h-16 bg-primary rounded-full"></div>
-        <div className="absolute bottom-20 left-20 w-12 h-12 bg-primary rounded-full"></div>
-        <div className="absolute bottom-32 right-10 w-24 h-24 bg-primary rounded-full"></div>
-        <div className="absolute top-1/2 left-1/4 w-8 h-8 bg-primary rounded-full"></div>
-        <div className="absolute top-1/3 right-1/3 w-14 h-14 bg-primary rounded-full"></div>
-      </div>
-
-      
-      
-      <div className="max-w-6xl mx-auto px-4 py-8 relative z-10">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-primary mb-4">
-            🛍️ BOUTIQUE
-          </h1>
-          <div className="bg-primary text-white rounded-xl px-6 py-3 inline-block">
-            <span className="text-2xl font-bold">{clafoutis}</span>
-            <span className="ml-2">clafoutis disponibles</span>
-          </div>
-        </div>
-
-        {/* Grille d'items */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {items.map((item) => (
-            <div
-              key={item.id}
-              className={`bg-white/90 backdrop-blur rounded-2xl shadow-lg overflow-hidden transition-all duration-300 transform hover:scale-105 ${
-                item.owned ? 'ring-2 ring-secondary' : ''
-              }`}
-            >
-              {/* Image/Icone */}
-              <div className={`h-32 ${getCategoryColor(item.category)} flex items-center justify-center`}>
-                <span className="text-6xl">{item.icon}</span>
-              </div>
-
-              {/* Contenu */}
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-bold text-lg text-text">{item.name}</h3>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium text-white ${getCategoryColor(item.category)}`}>
-                    {getCategoryLabel(item.category)}
-                  </span>
-                </div>
-                
-                <p className="text-text/70 text-sm mb-4">{item.description}</p>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-1">
-                    <span className="text-lg">🧮</span>
-                    <span className="font-bold text-primary">{item.price}</span>
-                  </div>
-                  
-                  <button
-                    onClick={() => handlePurchase(item)}
-                    disabled={clafoutis < item.price}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
-                      item.owned
-                        ? 'bg-secondary text-text cursor-not-allowed'
-                        : clafoutis >= item.price
-                        ? 'bg-primary hover:bg-primary-dark text-white'
-                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    }`}
-                  >
-                    {item.owned ? 'Possédé ✅' : clafoutis >= item.price ? 'Acheter' : 'Clafoutis insuffisants'}
-                  </button>
-                </div>
-              </div>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-primary to-secondary text-white py-8">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-4xl font-black mb-2">🛍️ Boutique CLAFOOTIX</h1>
+              <p className="text-xl opacity-90">Dépensez vos cerises pour débloquer du contenu exclusif !</p>
             </div>
-          ))}
-        </div>
-
-        {/* Section recommandations */}
-        <div className="mt-12 bg-white/90 backdrop-blur rounded-2xl p-8 shadow-xl">
-          <h2 className="text-2xl font-bold text-center text-text mb-6">
-            💡 Recommandations
-          </h2>
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="bg-primary/10 rounded-xl p-6">
-              <h3 className="font-bold text-lg text-primary mb-2">🎯 Pour débuter</h3>
-              <p className="text-text/70 text-sm">
-                Commencez par acheter des bonus utiles comme l'indice gratuit ou le bonus temps. 
-                Ils vous aideront à gagner plus de clafoutis !
-              </p>
-            </div>
-            <div className="bg-secondary/20 rounded-xl p-6">
-              <h3 className="font-bold text-lg text-secondary-dark mb-2">🏆 Collection</h3>
-              <p className="text-text/70 text-sm">
-                Collectionnez tous les avatars et thèmes pour personnaliser votre expérience 
-                et impressionner vos amis !
-              </p>
+            <div className="text-right">
+              <div className="text-3xl font-bold">🍒 {userBalance.toLocaleString()}</div>
+              <div className="text-sm opacity-75">Cerises disponibles</div>
             </div>
           </div>
         </div>
       </div>
 
-      <FloatingBall />
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        {/* Tabs */}
+        <div className="flex border-b border-accent-light mb-6">
+          <button
+            className={`py-3 px-6 text-lg font-medium ${
+              activeTab === 'shop' 
+                ? 'border-b-2 border-primary text-primary' 
+                : 'text-gray-600 hover:text-primary'
+            }`}
+            onClick={() => setActiveTab('shop')}
+          >
+            🛍️ Boutique
+          </button>
+          <button
+            className={`py-3 px-6 text-lg font-medium ${
+              activeTab === 'history' 
+                ? 'border-b-2 border-primary text-primary' 
+                : 'text-gray-600 hover:text-primary'
+            }`}
+            onClick={() => setActiveTab('history')}
+          >
+            📜 Historique
+          </button>
+        </div>
+
+        {/* Shop Tab */}
+        {activeTab === 'shop' && (
+          <div>
+            {/* Category Filter */}
+            <ShopCategoryFilter
+              categories={categories}
+              selectedCategory={selectedCategory}
+              onCategoryChange={setSelectedCategory}
+            />
+
+            {/* Items Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredItems.map(item => (
+                <ShopItemCard
+                  key={item.id}
+                  item={item}
+                  userBalance={userBalance}
+                  onPurchase={handlePurchase}
+                  onViewDetails={handleViewDetails}
+                />
+              ))}
+            </div>
+
+            {filteredItems.length === 0 && (
+              <div className="text-center py-12">
+                <div className="text-6xl mb-4">🔍</div>
+                <div className="text-xl text-gray-500">Aucun item trouvé dans cette catégorie</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* History Tab */}
+        {activeTab === 'history' && (
+          <ShopPurchaseHistory
+            purchases={purchases}
+            loading={false}
+            onLoadMore={() => {}}
+            hasMore={false}
+          />
+        )}
+      </div>
+
+      {/* Item Details Modal */}
+      {showModal && selectedItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="text-4xl">{selectedItem.icon}</div>
+              <div>
+                <h3 className="text-2xl font-bold text-primary">{selectedItem.name}</h3>
+                <span className="text-sm text-gray-500">{selectedItem.category}</span>
+              </div>
+            </div>
+            
+            <p className="text-gray-600 mb-4">{selectedItem.description}</p>
+            
+            <div className="flex items-center justify-between mb-6">
+              <div className="text-2xl font-bold text-primary">🍒 {selectedItem.price}</div>
+              <span className="text-sm bg-accent-light text-primary px-3 py-1 rounded-full">
+                {selectedItem.rarity}
+              </span>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowModal(false)}
+                className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors"
+              >
+                Fermer
+              </button>
+              <button
+                onClick={() => {
+                  handlePurchase(selectedItem.id);
+                  setShowModal(false);
+                }}
+                disabled={userBalance < selectedItem.price}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+                  userBalance >= selectedItem.price
+                    ? 'bg-primary hover:bg-primary-dark text-white'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                Acheter
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
