@@ -1,6 +1,7 @@
 // src/components/AdminQuestionsScreen.tsx
 import React, { useState, useEffect } from 'react';
 import { supabaseLocalService } from '../services/supabase-local.service';
+import { QuestionAnswerModal } from './QuestionAnswerModal';
 
 // Types pour les questions
 interface Question {
@@ -63,6 +64,11 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Question | GridAnswer | null>(null);
+
+  // États pour la modale de réponses
+  const [showAnswerModal, setShowAnswerModal] = useState(false);
+  const [answerModalMode, setAnswerModalMode] = useState<'create' | 'edit'>('create');
+  const [selectedAnswer, setSelectedAnswer] = useState<any>(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -257,6 +263,46 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
   const openDeleteModal = (item: Question | GridAnswer) => {
     setSelectedItem(item);
     setShowDeleteModal(true);
+  };
+
+  // Fonctions pour la gestion des réponses
+  const openAnswerModal = (mode: 'create' | 'edit', answer?: any) => {
+    setAnswerModalMode(mode);
+    setSelectedAnswer(answer || null);
+    setShowAnswerModal(true);
+  };
+
+  const handleAnswerSave = async (data: any) => {
+    try {
+      if (answerModalMode === 'create') {
+        await supabaseLocalService.createQuestionAnswer(data);
+      } else if (answerModalMode === 'edit' && selectedAnswer) {
+        await supabaseLocalService.updateQuestionAnswer(selectedAnswer.id, data);
+      }
+      
+      // Recharger les données
+      if (selectedQuestionId) {
+        const answers = await supabaseLocalService.getQuestionAnswersWithPlayers(selectedQuestionId);
+        setQuestionAnswers(answers);
+      }
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde de la réponse:', error);
+      throw error;
+    }
+  };
+
+  const handleAnswerDelete = async (answerId: string) => {
+    try {
+      await supabaseLocalService.deleteQuestionAnswer(answerId);
+      
+      // Recharger les données
+      if (selectedQuestionId) {
+        const answers = await supabaseLocalService.getQuestionAnswersWithPlayers(selectedQuestionId);
+        setQuestionAnswers(answers);
+      }
+    } catch (error) {
+      console.error('Erreur lors de la suppression de la réponse:', error);
+    }
   };
 
   const toggleQuestionSelection = (questionId: string) => {
@@ -499,7 +545,7 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
               </select>
               {selectedQuestionId && (
                 <button
-                  onClick={() => setShowCreateModal(true)}
+                  onClick={() => openAnswerModal('create')}
                   className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark transition-colors"
                 >
                   Ajouter une Réponse
@@ -533,14 +579,14 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
                     </div>
                     <div className="flex space-x-2">
                       <button
-                        onClick={() => openEditModal(answer)}
+                        onClick={() => openAnswerModal('edit', answer)}
                         className="text-blue-600 hover:text-blue-800"
                         aria-label={`Modifier réponse ${answer.players?.name}`}
                       >
                         ✏️
                       </button>
                       <button
-                        onClick={() => openDeleteModal(answer)}
+                        onClick={() => handleAnswerDelete(answer.id)}
                         className="text-red-600 hover:text-red-800"
                         aria-label={`Supprimer réponse ${answer.players?.name}`}
                       >
@@ -871,6 +917,19 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modale pour la gestion des réponses */}
+      {showAnswerModal && selectedQuestionId && (
+        <QuestionAnswerModal
+          isOpen={showAnswerModal}
+          onClose={() => setShowAnswerModal(false)}
+          onSave={handleAnswerSave}
+          questionId={selectedQuestionId}
+          questionType={questions.find(q => q.id === selectedQuestionId)?.game_type_id === 1 ? 'TOP10' : 'CLUB'}
+          answer={selectedAnswer}
+          mode={answerModalMode}
+        />
       )}
     </div>
   );
