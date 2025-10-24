@@ -59,11 +59,7 @@ function App() {
                 {/* Pages techniques */}
                 <Route path="/test" element={<TestSupabase />} />
                 <Route path="/supabase-test" element={<SupabaseTest />} />
-                <Route path="/admin" element={
-                  <ProtectedRoute>
-                    <Admin />
-                  </ProtectedRoute>
-                } />
+                <Route path="/admin" element={<Admin />} />
               </Routes>
             </>
           } />

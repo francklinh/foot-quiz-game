@@ -1,125 +1,272 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+// src/components/AdminDashboard.tsx
+import React, { useState, useEffect } from 'react';
+import { AdminGamesScreen } from './AdminGamesScreen';
+import { AdminPlayersScreen } from './AdminPlayersScreen';
+import { AdminQuestionsScreen } from './AdminQuestionsScreen';
+import { SupabaseConnectionTest } from './SupabaseConnectionTest';
+import { AdminFetchTest } from './AdminFetchTest';
+import { SimpleConnectionTest } from './SimpleConnectionTest';
+import { SupabaseSimpleTest } from './SupabaseSimpleTest';
+import { AdminGamesService } from '../services/admin-games.service';
+import { AdminPlayersService } from '../services/admin-players.service';
+import { AdminQuestionsService } from '../services/admin-questions.service';
 
-export function AdminDashboard() {
-  const adminSections = [
-    {
-      title: "Gestion des Joueurs",
-      description: "Ajouter, modifier et supprimer des joueurs",
-      icon: "👥",
-      path: "/admin#players",
-      color: "bg-primary"
-    },
-    {
-      title: "Gestion des Thèmes",
-      description: "Créer et gérer les thèmes de jeux",
-      icon: "🎯",
-      path: "/admin#themes",
-      color: "bg-secondary"
-    },
-    {
-      title: "Gestion des Questions",
-      description: "Ajouter des questions et réponses",
-      icon: "❓",
-      path: "/admin#questions",
-      color: "bg-success"
-    },
-    {
-      title: "Gestion des Grilles",
-      description: "Configurer les grilles croisées",
-      icon: "🔢",
-      path: "/admin#grids",
-      color: "bg-warning"
-    },
-    {
-      title: "Statistiques Admin",
-      description: "Analyser les performances et l'usage",
-      icon: "📊",
-      path: "/admin#stats",
-      color: "bg-info"
-    },
-    {
-      title: "Gestion des Utilisateurs",
-      description: "Modérer les comptes utilisateurs",
-      icon: "👤",
-      path: "/admin#users",
-      color: "bg-danger"
+interface AdminDashboardProps {
+  className?: string;
+}
+
+interface DashboardStats {
+  totalGames: number;
+  totalPlayers: number;
+  totalQuestions: number;
+  activeQuestions: number;
+}
+
+type ActiveTab = 'games' | 'players' | 'questions';
+
+export function AdminDashboard({ className = '' }: AdminDashboardProps) {
+  const [activeTab, setActiveTab] = useState<ActiveTab>('games');
+  const [stats, setStats] = useState<DashboardStats>({
+    totalGames: 0,
+    totalPlayers: 0,
+    totalQuestions: 0,
+    activeQuestions: 0
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const gamesService = new AdminGamesService();
+  const playersService = new AdminPlayersService();
+  const questionsService = new AdminQuestionsService();
+
+  useEffect(() => {
+    loadDashboardStats();
+  }, []);
+
+  const loadDashboardStats = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const [games, players, questions] = await Promise.all([
+        gamesService.getGameTypes(),
+        playersService.getPlayers(),
+        questionsService.getQuestions()
+      ]);
+
+      const activeQuestions = questions.filter(q => q.is_active).length;
+
+      setStats({
+        totalGames: games.length,
+        totalPlayers: players.length,
+        totalQuestions: questions.length,
+        activeQuestions
+      });
+    } catch (err: any) {
+      setError('Erreur lors du chargement des statistiques');
+      console.error('Failed to load dashboard stats:', err);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  const handleTabChange = (tab: ActiveTab) => {
+    setActiveTab(tab);
+  };
+
+  const handleQuickAction = (action: ActiveTab) => {
+    setActiveTab(action);
+  };
+
+  const renderActiveScreen = () => {
+    switch (activeTab) {
+      case 'games':
+        return <AdminGamesScreen className="mt-6" />;
+      case 'players':
+        return <AdminPlayersScreen className="mt-6" />;
+      case 'questions':
+        return <AdminQuestionsScreen className="mt-6" />;
+      default:
+        return <AdminGamesScreen className="mt-6" />;
+    }
+  };
+
+  const renderStatCard = (title: string, value: number | string, icon: string, color: string) => {
+    if (loading) {
+      return (
+        <div className="bg-white p-6 rounded-lg shadow border">
+          <div className="flex items-center">
+            <div className="p-3 rounded-full bg-gray-100">
+              <span className="text-2xl">{icon}</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-500">{title}</p>
+              <p className="text-lg font-semibold text-gray-900">Chargement...</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div className="bg-white p-6 rounded-lg shadow border">
+          <div className="flex items-center">
+            <div className="p-3 rounded-full bg-red-100">
+              <span className="text-2xl">❌</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-500">{title}</p>
+              <p className="text-lg font-semibold text-red-600">Erreur</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="bg-white p-6 rounded-lg shadow border">
+        <div className="flex items-center">
+          <div className={`p-3 rounded-full ${color}`}>
+            <span className="text-2xl">{icon}</span>
+          </div>
+          <div className="ml-4">
+            <p className="text-sm font-medium text-gray-500">{title}</p>
+            <p className="text-2xl font-bold text-gray-900">{value}</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div className="min-h-screen bg-pattern">
-      {/* Header Admin */}
-      <div className="bg-gradient-to-r from-primary to-secondary text-white py-8">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="text-center">
-            <h1 className="text-4xl font-black mb-2">🔧 Administration CLAFOOTIX</h1>
-            <p className="text-xl opacity-90">Gérez le contenu et les utilisateurs de l'application</p>
-          </div>
+    <div className={`p-6 ${className}`}>
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-primary mb-2">Tableau de Bord Admin</h1>
+        <p className="text-text-secondary">Gérez tous les aspects de votre application CLAFOOTIX</p>
+      </div>
+
+      {/* Statistics Cards */}
+      {/* Tests de Connexion Supabase */}
+      <div className="mb-8 space-y-4">
+        <SimpleConnectionTest />
+        <SupabaseSimpleTest />
+        <SupabaseConnectionTest />
+        <AdminFetchTest />
+      </div>
+
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Statistiques</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {renderStatCard('Total Jeux', stats.totalGames, '🎮', 'bg-blue-100')}
+          {renderStatCard('Total Joueurs', stats.totalPlayers, '👥', 'bg-green-100')}
+          {renderStatCard('Total Questions', stats.totalQuestions, '❓', 'bg-yellow-100')}
+          {renderStatCard('Questions Actives', stats.activeQuestions, '✅', 'bg-purple-100')}
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Navigation rapide */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-primary mb-4">Tableau de bord</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {adminSections.map((section, index) => (
-              <Link
-                key={section.title}
-                to={section.path}
-                className={`${section.color} text-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105`}
-              >
-                <div className="text-center">
-                  <div className="text-4xl mb-3">{section.icon}</div>
-                  <h3 className="text-xl font-bold mb-2">{section.title}</h3>
-                  <p className="text-sm opacity-90">{section.description}</p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
+      {/* Quick Actions */}
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Actions Rapides</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <button
+            onClick={() => handleQuickAction('games')}
+            className="p-4 bg-white rounded-lg shadow border hover:shadow-md transition-shadow text-left"
+          >
+            <div className="flex items-center">
+              <div className="p-2 rounded-full bg-blue-100">
+                <span className="text-xl">🎮</span>
+              </div>
+              <div className="ml-3">
+                <h3 className="font-medium text-gray-900">Créer un Jeu</h3>
+                <p className="text-sm text-gray-500">Ajouter un nouveau type de jeu</p>
+              </div>
+            </div>
+          </button>
 
-        {/* Statistiques rapides */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="card-primary p-6 text-center">
-            <div className="text-3xl mb-2">👥</div>
-            <div className="text-2xl font-bold text-primary">1,247</div>
-            <div className="text-sm text-secondary">Joueurs actifs</div>
-          </div>
-          <div className="card-primary p-6 text-center">
-            <div className="text-3xl mb-2">🎯</div>
-            <div className="text-2xl font-bold text-primary">89</div>
-            <div className="text-sm text-secondary">Thèmes créés</div>
-          </div>
-          <div className="card-primary p-6 text-center">
-            <div className="text-3xl mb-2">❓</div>
-            <div className="text-2xl font-bold text-primary">2,456</div>
-            <div className="text-sm text-secondary">Questions</div>
-          </div>
-          <div className="card-primary p-6 text-center">
-            <div className="text-3xl mb-2">🏆</div>
-            <div className="text-2xl font-bold text-primary">15,678</div>
-            <div className="text-sm text-secondary">Parties jouées</div>
-          </div>
-        </div>
+          <button
+            onClick={() => handleQuickAction('players')}
+            className="p-4 bg-white rounded-lg shadow border hover:shadow-md transition-shadow text-left"
+          >
+            <div className="flex items-center">
+              <div className="p-2 rounded-full bg-green-100">
+                <span className="text-xl">👥</span>
+              </div>
+              <div className="ml-3">
+                <h3 className="font-medium text-gray-900">Ajouter un Joueur</h3>
+                <p className="text-sm text-gray-500">Enregistrer un nouveau joueur</p>
+              </div>
+            </div>
+          </button>
 
-        {/* Actions rapides */}
-        <div className="card-primary p-6">
-          <h3 className="text-xl font-bold text-primary mb-4">Actions rapides</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <button className="btn-primary py-3 px-4 rounded-lg">
-              ➕ Ajouter un joueur
-            </button>
-            <button className="btn-secondary py-3 px-4 rounded-lg">
-              🎯 Créer un thème
-            </button>
-            <button className="btn-outline py-3 px-4 rounded-lg">
-              📊 Voir les statistiques
-            </button>
-          </div>
+          <button
+            onClick={() => handleQuickAction('questions')}
+            className="p-4 bg-white rounded-lg shadow border hover:shadow-md transition-shadow text-left"
+          >
+            <div className="flex items-center">
+              <div className="p-2 rounded-full bg-yellow-100">
+                <span className="text-xl">❓</span>
+              </div>
+              <div className="ml-3">
+                <h3 className="font-medium text-gray-900">Créer une Question</h3>
+                <p className="text-sm text-gray-500">Ajouter une nouvelle question</p>
+              </div>
+            </div>
+          </button>
         </div>
       </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+          {error}
+        </div>
+      )}
+
+      {/* Navigation Tabs */}
+      <div className="mb-6">
+        <div className="border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8" role="navigation">
+            <button
+              onClick={() => handleTabChange('games')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'games'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+              aria-selected={activeTab === 'games'}
+            >
+              Jeux
+            </button>
+            <button
+              onClick={() => handleTabChange('players')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'players'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+              aria-selected={activeTab === 'players'}
+            >
+              Joueurs
+            </button>
+            <button
+              onClick={() => handleTabChange('questions')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'questions'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+              aria-selected={activeTab === 'questions'}
+            >
+              Questions
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      {/* Active Screen */}
+      {renderActiveScreen()}
     </div>
   );
 }
