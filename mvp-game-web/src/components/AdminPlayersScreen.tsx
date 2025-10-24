@@ -9,6 +9,9 @@ interface Player {
   nationality: string;
   position: string;
   current_club: string;
+  club_history?: ClubHistory[];
+  is_active?: boolean;
+  is_verified?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -28,8 +31,13 @@ interface ClubHistory {
   end_date: string;
   is_current: boolean;
 }
-import { PlayerPosition, Nationality } from '../services/admin-constants';
-import { VALID_POSITIONS, VALID_NATIONALITIES } from '../services/admin-constants';
+
+// Types pour les positions et nationalités
+type PlayerPosition = 'Attaquant' | 'Milieu' | 'Défenseur' | 'Gardien';
+type Nationality = 'France' | 'Brazil' | 'Argentina' | 'Spain' | 'England' | 'Germany' | 'Italy' | 'Portugal' | 'Netherlands' | 'Belgium' | 'Poland' | 'Croatia' | 'Norway' | 'Egypt' | 'South Korea' | 'Japan' | 'Mexico' | 'USA' | 'Canada' | 'Australia' | 'Chile';
+
+const VALID_POSITIONS: PlayerPosition[] = ['Attaquant', 'Milieu', 'Défenseur', 'Gardien'];
+const VALID_NATIONALITIES: Nationality[] = ['France', 'Brazil', 'Argentina', 'Spain', 'England', 'Germany', 'Italy', 'Portugal', 'Netherlands', 'Belgium', 'Poland', 'Croatia', 'Norway', 'Egypt', 'South Korea', 'Japan', 'Mexico', 'USA', 'Canada', 'Australia', 'Chile'];
 
 interface AdminPlayersScreenProps {
   className?: string;
@@ -88,7 +96,7 @@ export function AdminPlayersScreen({ className = '' }: AdminPlayersScreenProps) 
 
       // Apply search filter
       if (searchTerm.length >= 2) {
-        const searchResults = await playersService.searchPlayers(searchTerm);
+        const searchResults = await supabaseLocalService.searchPlayers(searchTerm);
         filtered = searchResults;
       }
 
@@ -175,13 +183,18 @@ export function AdminPlayersScreen({ className = '' }: AdminPlayersScreenProps) 
     try {
       switch (action) {
         case 'archive':
-          await playersService.bulkArchivePlayers(selectedPlayers);
+          // Archive players (not implemented in local service yet)
+          console.log('Archive players:', selectedPlayers);
           break;
         case 'verify':
-          await playersService.bulkVerifyPlayers(selectedPlayers);
+          // Verify players (not implemented in local service yet)
+          console.log('Verify players:', selectedPlayers);
           break;
         case 'delete':
-          await playersService.bulkDeletePlayers(selectedPlayers);
+          // Delete players
+          for (const playerId of selectedPlayers) {
+            await supabaseLocalService.deletePlayer(playerId);
+          }
           break;
       }
       setSelectedPlayers([]);

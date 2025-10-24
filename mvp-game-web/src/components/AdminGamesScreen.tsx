@@ -7,6 +7,8 @@ interface GameType {
   id: string;
   name: string;
   description: string;
+  rules?: string;
+  scoring_system?: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -16,8 +18,12 @@ interface GameConfiguration {
   id: string;
   game_type_id: string;
   name: string;
+  title?: string;
   description: string;
   configuration: any;
+  difficulty?: string;
+  time_limit?: number;
+  max_players?: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -227,8 +233,8 @@ export function AdminGamesScreen({ className = '' }: AdminGamesScreenProps) {
                     <h3 className="text-lg font-semibold text-primary">{gameType.name}</h3>
                     <p className="text-text-secondary mt-1">{gameType.description}</p>
                     <div className="mt-2 text-sm text-text-muted">
-                      <p><strong>Règles:</strong> {gameType.rules}</p>
-                      <p><strong>Système de Scoring:</strong> {gameType.scoring_system}</p>
+                      <p><strong>Règles:</strong> {gameType.rules || 'Non définies'}</p>
+                      <p><strong>Système de Scoring:</strong> {gameType.scoring_system || 'Non défini'}</p>
                     </div>
                   </div>
                   <div className="flex space-x-2">
@@ -271,12 +277,12 @@ export function AdminGamesScreen({ className = '' }: AdminGamesScreenProps) {
               <div key={config.id} className="bg-white p-4 rounded-lg shadow border">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="text-lg font-semibold text-primary">{config.title}</h3>
+                    <h3 className="text-lg font-semibold text-primary">{config.title || config.name}</h3>
                     <p className="text-text-secondary mt-1">{config.description}</p>
                     <div className="mt-2 text-sm text-text-muted">
-                      <p><strong>Difficulté:</strong> {config.difficulty}</p>
-                      <p><strong>Temps limite:</strong> {config.time_limit}s</p>
-                      <p><strong>Joueurs max:</strong> {config.max_players}</p>
+                      <p><strong>Difficulté:</strong> {config.difficulty || 'Non définie'}</p>
+                      <p><strong>Temps limite:</strong> {config.time_limit || 'Non défini'}s</p>
+                      <p><strong>Joueurs max:</strong> {config.max_players || 'Non défini'}</p>
                       <p><strong>Actif:</strong> {config.is_active ? 'Oui' : 'Non'}</p>
                     </div>
                   </div>
@@ -284,14 +290,14 @@ export function AdminGamesScreen({ className = '' }: AdminGamesScreenProps) {
                     <button
                       onClick={() => openEditModal(config)}
                       className="text-blue-600 hover:text-blue-800"
-                      aria-label={`Modifier ${config.title}`}
+                      aria-label={`Modifier ${config.title || config.name}`}
                     >
                       ✏️
                     </button>
                     <button
                       onClick={() => openDeleteModal(config)}
                       className="text-red-600 hover:text-red-800"
-                      aria-label={`Supprimer ${config.title}`}
+                      aria-label={`Supprimer ${config.title || config.name}`}
                     >
                       🗑️
                     </button>

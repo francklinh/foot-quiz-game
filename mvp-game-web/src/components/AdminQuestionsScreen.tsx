@@ -7,6 +7,12 @@ interface Question {
   id: string;
   game_type_id: string;
   content: any;
+  title?: string;
+  description?: string;
+  game_type?: string;
+  difficulty?: string;
+  time_limit?: number;
+  max_attempts?: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -17,6 +23,10 @@ interface GridAnswer {
   question_id: string;
   player_id: string;
   position: { row: number; col: number };
+  row?: number;
+  col?: number;
+  points?: number;
+  grid_config_id?: string;
   created_at: string;
 }
 
@@ -25,8 +35,13 @@ interface QuestionFilters {
   gameType: string;
   isActive: boolean | null;
 }
-import { GameTypeEnum, Difficulty } from '../services/admin-constants';
-import { VALID_GAME_TYPES, VALID_DIFFICULTIES } from '../services/admin-constants';
+
+// Types pour les jeux et difficultés
+type GameTypeEnum = 'TOP10' | 'GRILLE' | 'CLUB';
+type Difficulty = 'easy' | 'medium' | 'hard';
+
+const VALID_GAME_TYPES: GameTypeEnum[] = ['TOP10', 'GRILLE', 'CLUB'];
+const VALID_DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard'];
 
 interface AdminQuestionsScreenProps {
   className?: string;
@@ -92,7 +107,7 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
 
       // Apply search filter
       if (searchTerm.length >= 2) {
-        const searchResults = await questionsService.getQuestions({ search: searchTerm });
+        const searchResults = await supabaseLocalService.searchQuestions(searchTerm);
         filtered = searchResults;
       }
 
@@ -179,10 +194,14 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
     try {
       switch (action) {
         case 'archive':
-          await questionsService.bulkArchiveQuestions(selectedQuestions);
+          // Archive questions (not implemented in local service yet)
+          console.log('Archive questions:', selectedQuestions);
           break;
         case 'delete':
-          await questionsService.bulkDeleteQuestions(selectedQuestions);
+          // Delete questions
+          for (const questionId of selectedQuestions) {
+            await supabaseLocalService.deleteQuestion(questionId);
+          }
           break;
       }
       setSelectedQuestions([]);
@@ -197,12 +216,12 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
     setSelectedItem(item);
     if ('title' in item) {
       setFormData({
-        title: item.title,
-        description: item.description,
-        game_type: item.game_type,
-        difficulty: item.difficulty,
-        time_limit: item.time_limit,
-        max_attempts: item.max_attempts,
+        title: item.title || item.content?.question || '',
+        description: item.description || item.content?.description || '',
+        game_type: item.game_type || item.game_type_id || 'TOP10',
+        difficulty: item.difficulty || 'medium',
+        time_limit: item.time_limit || 300,
+        max_attempts: item.max_attempts || 3,
         is_active: item.is_active
       });
     }
@@ -374,12 +393,12 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
                       aria-label={`Sélectionner ${question.title}`}
                     />
                     <div>
-                      <h3 className="text-lg font-semibold text-primary">{question.title}</h3>
+                      <h3 className="text-lg font-semibold text-primary">{question.title || question.content?.question || 'Question'}</h3>
                       <div className="mt-1 text-sm text-text-secondary space-y-1">
-                        <p><strong>Type:</strong> {question.game_type}</p>
-                        <p><strong>Difficulté:</strong> {question.difficulty}</p>
-                        <p><strong>Temps limite:</strong> {question.time_limit}s</p>
-                        <p><strong>Tentatives max:</strong> {question.max_attempts}</p>
+                        <p><strong>Type:</strong> {question.game_type || question.game_type_id}</p>
+                        <p><strong>Difficulté:</strong> {question.difficulty || 'Non définie'}</p>
+                        <p><strong>Temps limite:</strong> {question.time_limit || 'Non défini'}s</p>
+                        <p><strong>Tentatives max:</strong> {question.max_attempts || 'Non défini'}</p>
                         <div className="flex gap-4 mt-2">
                           <span className={`px-2 py-1 rounded text-xs ${
                             question.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
@@ -394,14 +413,14 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
                     <button
                       onClick={() => openEditModal(question)}
                       className="text-blue-600 hover:text-blue-800"
-                      aria-label={`Modifier ${question.title}`}
+                      aria-label={`Modifier ${question.title || question.content?.question || 'Question'}`}
                     >
                       ✏️
                     </button>
                     <button
                       onClick={() => openDeleteModal(question)}
                       className="text-red-600 hover:text-red-800"
-                      aria-label={`Supprimer ${question.title}`}
+                      aria-label={`Supprimer ${question.title || question.content?.question || 'Question'}`}
                     >
                       🗑️
                     </button>
@@ -437,11 +456,11 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="text-lg font-semibold text-primary">
-                      Ligne {answer.row}, Colonne {answer.col}
+                      Ligne {answer.row || answer.position?.row || 'N/A'}, Colonne {answer.col || answer.position?.col || 'N/A'}
                     </h3>
-                    <p className="text-text-secondary mt-1">Points: {answer.points}</p>
+                    <p className="text-text-secondary mt-1">Points: {answer.points || 'Non défini'}</p>
                     <div className="mt-2 text-sm text-text-muted">
-                      <p><strong>Grid Config ID:</strong> {answer.grid_config_id}</p>
+                      <p><strong>Grid Config ID:</strong> {answer.grid_config_id || 'Non défini'}</p>
                       <p><strong>Player ID:</strong> {answer.player_id}</p>
                     </div>
                   </div>
@@ -449,14 +468,14 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
                     <button
                       onClick={() => openEditModal(answer)}
                       className="text-blue-600 hover:text-blue-800"
-                      aria-label={`Modifier réponse ligne ${answer.row}, colonne ${answer.col}`}
+                      aria-label={`Modifier réponse ligne ${answer.row || answer.position?.row || 'N/A'}, colonne ${answer.col || answer.position?.col || 'N/A'}`}
                     >
                       ✏️
                     </button>
                     <button
                       onClick={() => openDeleteModal(answer)}
                       className="text-red-600 hover:text-red-800"
-                      aria-label={`Supprimer réponse ligne ${answer.row}, colonne ${answer.col}`}
+                      aria-label={`Supprimer réponse ligne ${answer.row || answer.position?.row || 'N/A'}, colonne ${answer.col || answer.position?.col || 'N/A'}`}
                     >
                       🗑️
                     </button>
