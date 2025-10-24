@@ -220,30 +220,12 @@ export function Top10() {
         setAnswers([]);
         setFeedback(null);
 
-        // 5) Créer une partie
-        const { data: game, error: gameErr } = await supabase
-          .from("games")
-          .insert({ question_id: question.id, user_id: userId })
-          .select("id")
-          .single<{ id: string }>();
-        if (gameErr) throw gameErr;
-        if (!cancelled) setGameId(game.id);
+        // 5) Initialiser le jeu (sans sauvegarde en base pour l'instant)
+        const gameId = `game_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        if (!cancelled) setGameId(gameId);
 
-        // 6) Charger leaderboard
-        const { data: lb, error: lbErr } = await supabase
-          .from("games")
-          .select(`
-            final_score,
-            answers_count,
-            ended_at,
-            users!inner(pseudo)
-          `)
-          .eq("question_id", question.id)
-          .not("ended_at", "is", null)
-          .order("final_score", { ascending: false })
-          .limit(10);
-        if (lbErr) throw lbErr;
-        if (!cancelled) setLeaderboard(lb ?? []);
+        // 6) Leaderboard vide pour l'instant (pas de table games)
+        if (!cancelled) setLeaderboard([]);
       } catch (e: any) {
         if (!cancelled) setLoadError(e.message ?? String(e));
       } finally {
@@ -347,34 +329,12 @@ export function Top10() {
       try {
         console.log("Ending game:", gameId, "Score:", score, "Answers:", answers.length);
         
-        const { data: updateResult, error: updateError } = await supabase
-          .from("games")
-          .update({
-            ended_at: new Date().toISOString(),
-            final_score: score,
-            answers_count: answers.length,
-          })
-          .eq("id", gameId)
-          .select();
+        // Sauvegarde désactivée - pas de table games
+        console.log("Partie terminée - Score final:", score, "Réponses:", answers.length);
 
-        if (updateError) {
-          console.error("Update error:", updateError);
-        } else {
-          console.log("Game updated successfully:", updateResult);
-        }
-
-        const dynamicSlug = `${gameMode}-${league}-${selectedYear}`;
-        const { data: lb, error: lbError } = await supabase.rpc("leaderboard_by_theme", {
-          p_slug: dynamicSlug,
-          p_limit: 10,
-        });
-        
-        if (lbError) {
-          console.error("Leaderboard error:", lbError);
-        }
-        
-        console.log("Leaderboard response:", lb);
-        setLeaderboard(lb ?? []);
+        // Leaderboard désactivé - pas de table games
+        console.log("Leaderboard non disponible - pas de table games");
+        setLeaderboard([]);
       } catch (e) {
         console.error("endGame/leaderboard failed:", e);
       }
