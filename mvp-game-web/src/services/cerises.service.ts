@@ -1,10 +1,11 @@
 import { supabase } from '../lib/supabase';
 
+// Types and interfaces
 export interface CerisesTransaction {
   id: string;
   user_id: string;
   amount: number;
-  type: 'EARNED' | 'SPENT' | 'TRANSFER_IN' | 'TRANSFER_OUT';
+  type: TransactionType;
   description: string;
   created_at: string;
 }
@@ -14,11 +15,32 @@ export interface TransferResult {
   toBalance: number;
 }
 
+export type TransactionType = 'EARNED' | 'SPENT' | 'TRANSFER_IN' | 'TRANSFER_OUT';
+
+// Constants
+const MIN_AMOUNT = 1;
+const MAX_AMOUNT = 1000000;
+const DEFAULT_BALANCE = 0;
+
+// Error messages
+const ERROR_MESSAGES = {
+  INVALID_AMOUNT: 'Amount must be positive',
+  INSUFFICIENT_BALANCE: 'Insufficient cerises balance',
+  GET_USER_CERISES_FAILED: 'Failed to get user cerises',
+  ADD_CERISES_FAILED: 'Failed to add cerises',
+  SPEND_CERISES_FAILED: 'Failed to spend cerises',
+  TRANSFER_CERISES_FAILED: 'Failed to transfer cerises',
+  GET_HISTORY_FAILED: 'Failed to get cerises history',
+  LOG_TRANSACTION_FAILED: 'Failed to log cerises transaction'
+} as const;
+
 export class CerisesService {
   /**
    * Get user's current cerises balance
    */
   async getUserCerises(userId: string): Promise<number> {
+    this.validateUserId(userId);
+    
     try {
       const { data, error } = await supabase
         .from('users')
@@ -30,9 +52,9 @@ export class CerisesService {
         throw new Error(error.message);
       }
 
-      return data?.cerises_balance || 0;
+      return data?.cerises_balance || DEFAULT_BALANCE;
     } catch (error) {
-      throw new Error('Failed to get user cerises');
+      throw new Error(ERROR_MESSAGES.GET_USER_CERISES_FAILED);
     }
   }
 
@@ -40,33 +62,19 @@ export class CerisesService {
    * Add cerises to user's balance
    */
   async addCerises(userId: string, amount: number): Promise<number> {
-    if (amount <= 0) {
-      throw new Error('Amount must be positive');
-    }
+    this.validateUserId(userId);
+    this.validateAmount(amount);
 
     try {
-      // Get current balance
       const currentBalance = await this.getUserCerises(userId);
       const newBalance = currentBalance + amount;
 
-      // Update balance
-      const { data, error } = await supabase
-        .from('users')
-        .update({ cerises_balance: newBalance })
-        .eq('id', userId)
-        .select('cerises_balance')
-        .single();
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      // Log transaction
+      await this.updateUserBalance(userId, newBalance);
       await this.logTransaction(userId, amount, 'EARNED', 'Cerises earned');
 
-      return data.cerises_balance;
+      return newBalance;
     } catch (error) {
-      throw new Error('Failed to add cerises');
+      throw new Error(ERROR_MESSAGES.ADD_CERISES_FAILED);
     }
   }
 
@@ -74,38 +82,21 @@ export class CerisesService {
    * Spend cerises from user's balance
    */
   async spendCerises(userId: string, amount: number): Promise<number> {
-    if (amount <= 0) {
-      throw new Error('Amount must be positive');
-    }
+    this.validateUserId(userId);
+    this.validateAmount(amount);
 
     try {
-      // Get current balance
-      const currentBalance = await this.getUserCerises(userId);
+      await this.checkSufficientBalance(userId, amount);
       
-      if (currentBalance < amount) {
-        throw new Error('Insufficient cerises balance');
-      }
-
+      const currentBalance = await this.getUserCerises(userId);
       const newBalance = currentBalance - amount;
 
-      // Update balance
-      const { data, error } = await supabase
-        .from('users')
-        .update({ cerises_balance: newBalance })
-        .eq('id', userId)
-        .select('cerises_balance')
-        .single();
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      // Log transaction
+      await this.updateUserBalance(userId, newBalance);
       await this.logTransaction(userId, -amount, 'SPENT', 'Cerises spent');
 
-      return data.cerises_balance;
+      return newBalance;
     } catch (error) {
-      throw new Error('Failed to spend cerises');
+      throw new Error(ERROR_MESSAGES.SPEND_CERISES_FAILED);
     }
   }
 
@@ -113,36 +104,26 @@ export class CerisesService {
    * Transfer cerises between users
    */
   async transferCerises(fromUserId: string, toUserId: string, amount: number): Promise<TransferResult> {
-    if (amount <= 0) {
-      throw new Error('Amount must be positive');
+    this.validateUserId(fromUserId);
+    this.validateUserId(toUserId);
+    this.validateAmount(amount);
+
+    if (fromUserId === toUserId) {
+      throw new Error('Cannot transfer cerises to yourself');
     }
 
     try {
-      // Check from user balance
-      const fromBalance = await this.getUserCerises(fromUserId);
+      await this.checkSufficientBalance(fromUserId, amount);
       
-      if (fromBalance < amount) {
-        throw new Error('Insufficient cerises balance');
-      }
-
-      // Get to user balance
+      const fromBalance = await this.getUserCerises(fromUserId);
       const toBalance = await this.getUserCerises(toUserId);
 
-      // Update from user
       const newFromBalance = fromBalance - amount;
-      await supabase
-        .from('users')
-        .update({ cerises_balance: newFromBalance })
-        .eq('id', fromUserId);
-
-      // Update to user
       const newToBalance = toBalance + amount;
-      await supabase
-        .from('users')
-        .update({ cerises_balance: newToBalance })
-        .eq('id', toUserId);
 
-      // Log transactions
+      await this.updateUserBalance(fromUserId, newFromBalance);
+      await this.updateUserBalance(toUserId, newToBalance);
+
       await this.logTransaction(fromUserId, -amount, 'TRANSFER_OUT', `Transfer to user ${toUserId}`);
       await this.logTransaction(toUserId, amount, 'TRANSFER_IN', `Transfer from user ${fromUserId}`);
 
@@ -151,7 +132,7 @@ export class CerisesService {
         toBalance: newToBalance
       };
     } catch (error) {
-      throw new Error('Failed to transfer cerises');
+      throw new Error(ERROR_MESSAGES.TRANSFER_CERISES_FAILED);
     }
   }
 
@@ -159,6 +140,8 @@ export class CerisesService {
    * Get user's cerises transaction history
    */
   async getCerisesHistory(userId: string): Promise<CerisesTransaction[]> {
+    this.validateUserId(userId);
+    
     try {
       const { data, error } = await supabase
         .from('cerises_transactions')
@@ -172,7 +155,7 @@ export class CerisesService {
 
       return data || [];
     } catch (error) {
-      throw new Error('Failed to get cerises history');
+      throw new Error(ERROR_MESSAGES.GET_HISTORY_FAILED);
     }
   }
 
@@ -182,7 +165,7 @@ export class CerisesService {
   private async logTransaction(
     userId: string, 
     amount: number, 
-    type: 'EARNED' | 'SPENT' | 'TRANSFER_IN' | 'TRANSFER_OUT', 
+    type: TransactionType, 
     description: string
   ): Promise<void> {
     try {
@@ -196,7 +179,52 @@ export class CerisesService {
         });
     } catch (error) {
       // Log error but don't throw to avoid breaking main operations
-      console.error('Failed to log cerises transaction:', error);
+      console.error(ERROR_MESSAGES.LOG_TRANSACTION_FAILED, error);
+    }
+  }
+
+  /**
+   * Validate user ID
+   */
+  private validateUserId(userId: string): void {
+    if (!userId || typeof userId !== 'string' || userId.trim().length === 0) {
+      throw new Error('Invalid user ID');
+    }
+  }
+
+  /**
+   * Validate amount
+   */
+  private validateAmount(amount: number): void {
+    if (amount <= 0) {
+      throw new Error(ERROR_MESSAGES.INVALID_AMOUNT);
+    }
+    if (amount < MIN_AMOUNT || amount > MAX_AMOUNT) {
+      throw new Error(`Amount must be between ${MIN_AMOUNT} and ${MAX_AMOUNT}`);
+    }
+  }
+
+  /**
+   * Update user balance in database
+   */
+  private async updateUserBalance(userId: string, newBalance: number): Promise<void> {
+    const { error } = await supabase
+      .from('users')
+      .update({ cerises_balance: newBalance })
+      .eq('id', userId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+  }
+
+  /**
+   * Check if user has sufficient balance
+   */
+  private async checkSufficientBalance(userId: string, amount: number): Promise<void> {
+    const currentBalance = await this.getUserCerises(userId);
+    if (currentBalance < amount) {
+      throw new Error(ERROR_MESSAGES.INSUFFICIENT_BALANCE);
     }
   }
 }
