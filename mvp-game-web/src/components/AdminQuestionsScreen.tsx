@@ -474,10 +474,10 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
               >
                 <option value="">Sélectionner une question</option>
                 {questions
-                  .filter(q => q.game_type_id === 'TOP10' || q.game_type_id === 'CLUB')
+                  .filter(q => q.game_type_id === 1 || q.game_type_id === 3) // 1 = TOP10, 3 = CLUB
                   .map((question) => (
                     <option key={question.id} value={question.id}>
-                      {question.content?.question || question.title || 'Question'} ({question.game_type_id})
+                      {question.content?.question || question.title || 'Question'} ({question.game_type_id === 1 ? 'TOP10' : 'CLUB'})
                     </option>
                   ))}
               </select>
