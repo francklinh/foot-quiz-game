@@ -3,8 +3,7 @@ import { GlobalHeader } from "../components/GlobalHeader";
 import { CerisesDisplay } from "../components/CerisesDisplay";
 import { FriendsList } from "../components/FriendsList";
 import { ChallengesList } from "../components/ChallengesList";
-import { SimpleAuth } from "../components/SimpleAuth";
-import { simpleAuthService, SimpleUser } from "../services/simple-auth.service";
+import { simpleSupabaseAuthService, SimpleUser } from "../services/simple-supabase-auth.service";
 
 type UserProfile = {
   id: string;
@@ -31,8 +30,8 @@ export function Profil() {
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
-    // Charger l'utilisateur depuis SimpleAuth
-    const currentUser = simpleAuthService.getCurrentUser();
+    // Charger l'utilisateur depuis SimpleSupabaseAuth
+    const currentUser = simpleSupabaseAuthService.getCurrentUser();
     if (currentUser) {
       setUser(currentUser);
       console.log('✅ Profil - Utilisateur chargé:', currentUser);
@@ -49,18 +48,22 @@ export function Profil() {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (user) {
-      // Sauvegarder via SimpleAuth
-      simpleAuthService.updateProfile(user);
-      setIsEditing(false);
-      setHasChanges(false);
-      alert("Profil sauvegardé ! ✅");
+      // Sauvegarder via SimpleSupabaseAuth
+      const result = await simpleSupabaseAuthService.updateProfile(user);
+      if (result.success) {
+        setIsEditing(false);
+        setHasChanges(false);
+        alert("Profil sauvegardé ! ✅");
+      } else {
+        alert(`Erreur: ${result.error}`);
+      }
     }
   };
 
-  const handleLogout = () => {
-    simpleAuthService.logout();
+  const handleLogout = async () => {
+    await simpleSupabaseAuthService.signOut();
     setUser(null);
     console.log('✅ Déconnexion réussie');
   };
@@ -69,7 +72,7 @@ export function Profil() {
     setIsEditing(false);
     setHasChanges(false);
     // Recharger les données originales
-    const currentUser = simpleAuthService.getCurrentUser();
+    const currentUser = simpleSupabaseAuthService.getCurrentUser();
     if (currentUser) {
       setUser(currentUser);
     }
@@ -79,10 +82,6 @@ export function Profil() {
     <div className="min-h-screen bg-background">
       
       <div className="max-w-2xl mx-auto px-4 py-8">
-        {/* Authentification simple */}
-        <div className="mb-6">
-          <SimpleAuth />
-        </div>
         {user ? (
           <div className="bg-white rounded-2xl shadow-xl p-8">
             {/* Photo de profil */}

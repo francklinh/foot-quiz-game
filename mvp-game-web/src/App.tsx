@@ -17,11 +17,13 @@ import { Top10 } from "./pages/Top10";
 import { GrilleCroisee } from "./pages/GrilleCroisee";
 import { ClubExpress } from "./pages/ClubExpress";
 import { TestSupabase } from "./pages/TestSupabase";
-import { SupabaseTest } from "./components/SupabaseTest";
 import { Admin } from "./pages/Admin";
-import { Login } from "./pages/Login";
-import { Register } from "./pages/Register";
-import { ProtectedRoute } from "./components/ProtectedRoute";
+import { SimpleLogin } from "./pages/SimpleLogin";
+import { SimpleRegister } from "./pages/SimpleRegister";
+import { AuthCallback } from "./pages/AuthCallback";
+import { TestRegister } from "./pages/TestRegister";
+import { TestLogin } from "./pages/TestLogin";
+import { SupabaseTest } from "./pages/SupabaseTest";
 import { GlobalHeader } from "./components/GlobalHeader";
 import { supabase } from "./lib/supabase";
 
@@ -30,7 +32,24 @@ function App() {
   useEffect(() => {
     console.log('🔄 App - Initialisation de la gestion de session');
     
-    // Vérifier la session au chargement
+    // Vérifier d'abord localStorage pour une session sauvegardée
+    const savedSession = localStorage.getItem('supabase.auth.token');
+    if (savedSession) {
+      try {
+        const sessionData = JSON.parse(savedSession);
+        console.log('✅ App - Session trouvée dans localStorage:', sessionData.user?.email);
+        // Rediriger vers home si on n'y est pas déjà
+        if (window.location.pathname !== '/home') {
+          window.location.href = '/home';
+        }
+        return;
+      } catch (error) {
+        console.error('❌ App - Erreur parsing session localStorage:', error);
+        localStorage.removeItem('supabase.auth.token');
+      }
+    }
+    
+    // Vérifier la session Supabase au chargement
     supabase.auth.getSession().then(({ data, error }) => {
       console.log('🔄 App - Session au chargement:', { data, error });
       if (data.session?.user) {
@@ -85,8 +104,12 @@ function App() {
         <Routes>
           {/* Pages d'authentification sans header */}
           <Route path="/splash" element={<SplashScreen />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+          <Route path="/login" element={<SimpleLogin />} />
+          <Route path="/register" element={<SimpleRegister />} />
+          <Route path="/test-register" element={<TestRegister />} />
+          <Route path="/test-login" element={<TestLogin />} />
+          <Route path="/supabase-test" element={<SupabaseTest />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
           
           {/* Toutes les autres pages avec header global */}
           <Route path="/*" element={
