@@ -16,6 +16,7 @@ import { Top10 } from "./pages/Top10";
 import { GrilleCroisee } from "./pages/GrilleCroisee";
 import { ClubExpress } from "./pages/ClubExpress";
 import { TestSupabase } from "./pages/TestSupabase";
+import { SupabaseTest } from "./components/SupabaseTest";
 import { Admin } from "./pages/Admin";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { GlobalHeader } from "./components/GlobalHeader";
@@ -57,6 +58,7 @@ function App() {
                 
                 {/* Pages techniques */}
                 <Route path="/test" element={<TestSupabase />} />
+                <Route path="/supabase-test" element={<SupabaseTest />} />
                 <Route path="/admin" element={
                   <ProtectedRoute>
                     <Admin />
