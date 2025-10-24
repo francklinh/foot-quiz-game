@@ -3,7 +3,8 @@ import { GlobalHeader } from "../components/GlobalHeader";
 import { CerisesDisplay } from "../components/CerisesDisplay";
 import { FriendsList } from "../components/FriendsList";
 import { ChallengesList } from "../components/ChallengesList";
-import { simpleSupabaseAuthService, SimpleUser } from "../services/simple-supabase-auth.service";
+import { supabase } from "../lib/supabase";
+import { User } from "@supabase/supabase-js";
 
 type UserProfile = {
   id: string;
@@ -25,22 +26,45 @@ const AVATAR_OPTIONS = [
 ];
 
 export function Profil() {
-  const [user, setUser] = useState<SimpleUser | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
-    // Charger l'utilisateur depuis SimpleSupabaseAuth
-    const currentUser = simpleSupabaseAuthService.getCurrentUser();
-    if (currentUser) {
-      setUser(currentUser);
-      console.log('✅ Profil - Utilisateur chargé:', currentUser);
-    } else {
-      console.log('❌ Profil - Aucun utilisateur connecté');
-    }
+    // Charger l'utilisateur depuis Supabase
+    const loadUser = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error('❌ Profil - Erreur session:', error);
+        return;
+      }
+      
+      if (session?.user) {
+        setUser(session.user);
+        console.log('✅ Profil - Utilisateur chargé:', session.user.email);
+      } else {
+        console.log('❌ Profil - Aucun utilisateur connecté');
+      }
+    };
+
+    loadUser();
+
+    // Écouter les changements d'état d'authentification
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('🔄 Profil - Changement d\'état:', event, session?.user?.email);
+      if (session?.user) {
+        setUser(session.user);
+      } else {
+        setUser(null);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const handleInputChange = (field: keyof SimpleUser, value: string) => {
+  const handleInputChange = (field: string, value: string) => {
     if (user) {
       const updatedUser = { ...user, [field]: value };
       setUser(updatedUser);
@@ -50,32 +74,47 @@ export function Profil() {
 
   const handleSave = async () => {
     if (user) {
-      // Sauvegarder via SimpleSupabaseAuth
-      const result = await simpleSupabaseAuthService.updateProfile(user);
-      if (result.success) {
-        setIsEditing(false);
-        setHasChanges(false);
-        alert("Profil sauvegardé ! ✅");
-      } else {
-        alert(`Erreur: ${result.error}`);
+      try {
+        // Sauvegarder via Supabase
+        const { error } = await supabase.auth.updateUser({
+          data: {
+            pseudo: user.user_metadata?.pseudo || user.email?.split('@')[0],
+            country: user.user_metadata?.country || 'France'
+          }
+        });
+        
+        if (error) {
+          alert(`Erreur: ${error.message}`);
+        } else {
+          setIsEditing(false);
+          setHasChanges(false);
+          alert("Profil sauvegardé ! ✅");
+        }
+      } catch (error: any) {
+        alert(`Erreur: ${error.message}`);
       }
     }
   };
 
   const handleLogout = async () => {
-    await simpleSupabaseAuthService.signOut();
-    setUser(null);
-    console.log('✅ Déconnexion réussie');
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      console.log('✅ Déconnexion réussie');
+    } catch (error: any) {
+      console.error('❌ Erreur déconnexion:', error);
+    }
   };
 
   const handleCancel = () => {
     setIsEditing(false);
     setHasChanges(false);
     // Recharger les données originales
-    const currentUser = simpleSupabaseAuthService.getCurrentUser();
-    if (currentUser) {
-      setUser(currentUser);
-    }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+      }
+    });
   };
 
   return (
@@ -110,7 +149,7 @@ export function Profil() {
                 </label>
                 <input
                   type="text"
-                  value={user.pseudo}
+                  value={user.user_metadata?.pseudo || user.email?.split('@')[0] || ''}
                   onChange={(e) => handleInputChange('pseudo', e.target.value)}
                   disabled={!isEditing}
                   className={`w-full p-3 rounded-lg border-2 transition-colors duration-200 ${
@@ -128,7 +167,7 @@ export function Profil() {
                 </label>
                 <input
                   type="email"
-                  value={user.email}
+                  value={user.email || ''}
                   onChange={(e) => handleInputChange('email', e.target.value)}
                   disabled={!isEditing}
                   className={`w-full p-3 rounded-lg border-2 transition-colors duration-200 ${
@@ -145,7 +184,7 @@ export function Profil() {
                   COUNTRY
                 </label>
                 <select
-                  value={user.country}
+                  value={user.user_metadata?.country || 'France'}
                   onChange={(e) => handleInputChange('country', e.target.value)}
                   disabled={!isEditing}
                   className={`w-full p-3 rounded-lg border-2 transition-colors duration-200 ${
