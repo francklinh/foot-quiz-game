@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { GlobalHeader } from "../components/GlobalHeader";
+import { CerisesDisplay } from "../components/CerisesDisplay";
+import { FriendsList } from "../components/FriendsList";
+import { ChallengesList } from "../components/ChallengesList";
 
 type UserProfile = {
   id: string;
@@ -196,6 +199,25 @@ export function Profil() {
               </button>
             )}
           </div>
+        </div>
+
+        {/* Section Cerises */}
+        <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
+          <h2 className="text-2xl font-bold text-primary mb-4">Mes Cerises</h2>
+          <CerisesDisplay 
+            userId={profile.id} 
+            className="text-center"
+          />
+        </div>
+
+        {/* Section Amis */}
+        <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
+          <FriendsList userId={profile.id} />
+        </div>
+
+        {/* Section Défis */}
+        <div className="bg-white rounded-2xl shadow-xl p-6">
+          <ChallengesList userId={profile.id} />
         </div>
       </div>
     </div>
