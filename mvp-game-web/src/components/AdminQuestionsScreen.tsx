@@ -77,6 +77,10 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
   // Utilisation du service local Supabase
 
   useEffect(() => {
+    // Réinitialiser selectedQuestionId quand on change d'onglet
+    if (activeTab === 'questionAnswers') {
+      setSelectedQuestionId('');
+    }
     loadData();
   }, [activeTab]);
 
@@ -498,8 +502,12 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
           </div>
 
           {selectedQuestionId ? (
-            <div className="grid gap-4">
-              {questionAnswers.map((answer) => (
+            <div>
+              <div className="mb-2 text-sm text-gray-600">
+                Debug: Question ID sélectionnée: {selectedQuestionId}
+              </div>
+              <div className="grid gap-4">
+                {questionAnswers.map((answer) => (
                 <div key={answer.id} className="bg-white p-4 rounded-lg shadow border">
                   <div className="flex justify-between items-start">
                     <div>
@@ -544,6 +552,7 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
                   Aucune réponse trouvée pour cette question.
                 </div>
               )}
+              </div>
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">
