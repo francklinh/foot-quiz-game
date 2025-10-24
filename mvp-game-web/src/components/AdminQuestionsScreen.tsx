@@ -88,6 +88,14 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
     filterQuestions();
   }, [questions, searchTerm, activeFilter]);
 
+  // Recharger les réponses quand selectedQuestionId change
+  useEffect(() => {
+    if (activeTab === 'questionAnswers' && selectedQuestionId) {
+      console.log('🔄 Rechargement des réponses pour selectedQuestionId:', selectedQuestionId);
+      loadData();
+    }
+  }, [selectedQuestionId]);
+
   const loadData = async () => {
     setLoading(true);
     setError(null);
@@ -105,9 +113,12 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
         
         // Charger les réponses si une question est sélectionnée
         if (selectedQuestionId) {
+          console.log('🔍 Chargement des réponses pour question ID:', selectedQuestionId);
           const data = await supabaseLocalService.getQuestionAnswersWithPlayers(selectedQuestionId);
+          console.log('📊 Réponses chargées:', data.length);
           setQuestionAnswers(data);
         } else {
+          console.log('🔍 Aucune question sélectionnée, réponses vidées');
           setQuestionAnswers([]);
         }
       }
