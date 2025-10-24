@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { useEffect } from "react";
 import { SplashScreen } from "./pages/SplashScreen";
 import { ModeSelection } from "./pages/ModeSelection";
 import { Concurrents } from "./pages/Concurrents";
@@ -18,16 +19,74 @@ import { ClubExpress } from "./pages/ClubExpress";
 import { TestSupabase } from "./pages/TestSupabase";
 import { SupabaseTest } from "./components/SupabaseTest";
 import { Admin } from "./pages/Admin";
+import { Login } from "./pages/Login";
+import { Register } from "./pages/Register";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { GlobalHeader } from "./components/GlobalHeader";
+import { supabase } from "./lib/supabase";
 
 function App() {
+  // Gestion de la session au niveau de l'application
+  useEffect(() => {
+    console.log('🔄 App - Initialisation de la gestion de session');
+    
+    // Vérifier la session au chargement
+    supabase.auth.getSession().then(({ data, error }) => {
+      console.log('🔄 App - Session au chargement:', { data, error });
+      if (data.session?.user) {
+        console.log('✅ App - Session trouvée:', data.session.user.email);
+      } else {
+        console.log('❌ App - Aucune session trouvée');
+        
+        // Vérifier s'il y a des tokens dans l'URL (confirmation email ou lien magique)
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        if (hashParams.has('access_token') || hashParams.has('refresh_token') || 
+            urlParams.has('access_token') || urlParams.has('refresh_token')) {
+          console.log('🔄 App - Tokens détectés dans l\'URL, tentative de traitement...');
+          
+          // Forcer le traitement de la session
+          setTimeout(() => {
+            supabase.auth.getSession().then(({ data: newData, error: newError }) => {
+              console.log('🔄 App - Session après traitement des tokens:', { newData, newError });
+              if (newData.session?.user) {
+                console.log('✅ App - Session créée après traitement des tokens:', newData.session.user.email);
+                // Rediriger vers home si l'utilisateur est maintenant connecté
+                window.location.href = '/home';
+              }
+            });
+          }, 1000);
+        }
+      }
+    });
+
+    // Écouter les changements d'état d'authentification
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('🔄 App - Changement d\'état d\'authentification:', event, session?.user?.email);
+      
+      if (event === 'SIGNED_IN' && session?.user) {
+        console.log('✅ App - Utilisateur connecté:', session.user.email);
+      } else if (event === 'SIGNED_OUT') {
+        console.log('❌ App - Utilisateur déconnecté');
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        console.log('🔄 App - Token rafraîchi:', session.user.email);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
   return (
     <Router>
       <div className="min-h-screen bg-background font-poppins">
         <Routes>
-          {/* Page d'ouverture sans header */}
+          {/* Pages d'authentification sans header */}
           <Route path="/splash" element={<SplashScreen />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
           
           {/* Toutes les autres pages avec header global */}
           <Route path="/*" element={

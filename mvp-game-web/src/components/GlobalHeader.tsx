@@ -24,11 +24,14 @@ export function GlobalHeader({ showProfile = true }: GlobalHeaderProps) {
 
   // Récupération de l'utilisateur et des clafoutis
   useEffect(() => {
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('🔄 GlobalHeader - Changement d\'état d\'authentification:', event, session?.user?.email);
       setUserEmail(session?.user?.email ?? null);
     });
 
-    supabase.auth.getSession().then(({ data }) => {
+    // Vérifier la session au chargement
+    supabase.auth.getSession().then(({ data, error }) => {
+      console.log('🔄 GlobalHeader - Session au chargement:', { data, error });
       setUserEmail(data.session?.user?.email ?? null);
     });
 
@@ -48,7 +51,7 @@ export function GlobalHeader({ showProfile = true }: GlobalHeaderProps) {
   };
 
   return (
-    <header className="bg-primary text-white shadow-lg h-16">
+    <header className="bg-primary text-white shadow-lg h-16 relative z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full">
         <div className="flex items-center justify-between h-full">
           {/* Gauche - Compteur Clafoutis et Admin */}

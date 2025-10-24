@@ -45,7 +45,7 @@ export function Home() {
   return (
     <div className="min-h-screen bg-pattern">
       {/* Motifs ballon en filigrane avec meilleur contraste */}
-      <div className="absolute inset-0 opacity-10">
+      <div className="absolute inset-0 opacity-10 z-0">
         <div className="absolute top-10 left-10 w-20 h-20 bg-primary rounded-full"></div>
         <div className="absolute top-32 right-16 w-16 h-16 bg-primary rounded-full"></div>
         <div className="absolute bottom-20 left-20 w-12 h-12 bg-primary rounded-full"></div>
@@ -107,6 +107,9 @@ export function Home() {
       </div>
 
       <FloatingBall />
+      
+      {/* Debug: Vérifier s'il y a un élément invisible qui bloque */}
+      <div className="fixed top-0 right-0 w-20 h-16 bg-transparent pointer-events-none z-40"></div>
     </div>
   );
 }
