@@ -66,13 +66,17 @@ export class CerisesService {
     this.validateAmount(amount);
 
     try {
-      const currentBalance = await this.getUserCerises(userId);
-      const newBalance = currentBalance + amount;
+      // Utiliser la fonction SQL qui gère automatiquement la transaction
+      const { data, error } = await supabase.rpc('update_cerises_balance', {
+        p_user_id: userId,
+        p_amount: amount
+      });
 
-      await this.updateUserBalance(userId, newBalance);
-      await this.logTransaction(userId, amount, 'EARNED', 'Cerises earned');
+      if (error) {
+        throw new Error(error.message);
+      }
 
-      return newBalance;
+      return data;
     } catch (error) {
       throw new Error(ERROR_MESSAGES.ADD_CERISES_FAILED);
     }
@@ -88,13 +92,17 @@ export class CerisesService {
     try {
       await this.checkSufficientBalance(userId, amount);
       
-      const currentBalance = await this.getUserCerises(userId);
-      const newBalance = currentBalance - amount;
+      // Utiliser la fonction SQL avec un montant négatif
+      const { data, error } = await supabase.rpc('update_cerises_balance', {
+        p_user_id: userId,
+        p_amount: -amount
+      });
 
-      await this.updateUserBalance(userId, newBalance);
-      await this.logTransaction(userId, -amount, 'SPENT', 'Cerises spent');
+      if (error) {
+        throw new Error(error.message);
+      }
 
-      return newBalance;
+      return data;
     } catch (error) {
       throw new Error(ERROR_MESSAGES.SPEND_CERISES_FAILED);
     }
