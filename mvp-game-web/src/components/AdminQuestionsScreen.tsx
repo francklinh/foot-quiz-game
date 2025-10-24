@@ -95,6 +95,11 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
         const data = await supabaseLocalService.getGridAnswers();
         setGridAnswers(data);
       } else if (activeTab === 'questionAnswers') {
+        // Charger les questions pour le dropdown
+        const questionsData = await supabaseLocalService.getQuestions();
+        setQuestions(questionsData);
+        
+        // Charger les réponses si une question est sélectionnée
         if (selectedQuestionId) {
           const data = await supabaseLocalService.getQuestionAnswersWithPlayers(selectedQuestionId);
           setQuestionAnswers(data);
