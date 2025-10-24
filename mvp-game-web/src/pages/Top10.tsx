@@ -159,55 +159,45 @@ export function Top10() {
         setLoading(true);
         setLoadError(null);
 
-        // Construire le slug dynamique : ex "buteurs-ligue1-2024"
-        const dynamicSlug = `${gameMode}-${league}-${selectedYear}`;
+        // Construire les paramètres de recherche
+        const season = `${selectedYear}-${parseInt(selectedYear) + 1}`;
+        const type = gameMode === "buteurs" ? "buteurs" : "passeurs";
         setTitle(`Top 10 ${gameMode === "buteurs" ? "Buteurs" : "Passeurs"} ${league.toUpperCase()} ${selectedYear}`);
 
-        // 1) Thème
-        const { data: theme, error: themeErr } = await supabase
-          .from("themes")
-          .select("id, slug, title")
-          .eq("slug", dynamicSlug)
-          .single<ThemeRow>();
+        // 1) Question TOP 10
+        const { data: question, error: questionErr } = await supabase
+          .from("questions")
+          .select("id, content")
+          .eq("game_type_id", 1) // TOP 10
+          .eq("is_active", true)
+          .contains("content", { type, season })
+          .single();
         
-        if (themeErr || !theme) {
-          throw new Error(`Thème "${dynamicSlug}" introuvable. Créez-le d'abord dans Supabase.`);
+        if (questionErr || !question) {
+          throw new Error(`Question TOP 10 "${type}" pour la saison "${season}" introuvable.`);
         }
         if (cancelled) return;
 
-        // 2) Réponses valides avec nouvelles colonnes (ranking, goals, assists, value)
+        // 2) Réponses de la question
         const { data: rows, error: ansErr } = await supabase
-          .from("theme_answers")
+          .from("question_answers")
           .select(`
-            answer, 
-            answer_norm,
             ranking,
-            goals,
-            assists,
-            value
+            points,
+            players!inner(name, current_club, nationality)
           `)
-          .eq("theme_id", theme.id)
-          .order("ranking", { ascending: true }); // Tri par ranking croissant
+          .eq("question_id", question.id)
+          .order("ranking", { ascending: true });
         if (ansErr) throw ansErr;
 
-        // 2b) Récupérer les nationalités des joueurs
-        const { data: playersData, error: playersDataErr } = await supabase
-          .from("players")
-          .select("name, nationality");
-        
-        if (playersDataErr) console.error("Erreur lors de la récupération des nationalités:", playersDataErr);
-        
-        // Créer un map name -> nationality
-        const nationalityMap = new Map<string, string>();
-        (playersData ?? []).forEach((p: any) => {
-          nationalityMap.set(normalize(p.name), p.nationality);
-        });
-
-        // Ajouter les nationalités aux réponses
+        // Traitement des réponses avec les données des joueurs
         const list = (rows ?? []).map((r: any) => ({
-          ...r,
+          answer: r.players.name,
+          answer_norm: normalize(r.players.name),
+          ranking: r.ranking,
+          points: r.points,
           players: {
-            nationality: nationalityMap.get(r.answer_norm)
+            nationality: r.players.nationality
           }
         })) as ThemeAnswerRow[];
         
@@ -233,17 +223,25 @@ export function Top10() {
         // 5) Créer une partie
         const { data: game, error: gameErr } = await supabase
           .from("games")
-          .insert({ theme_id: theme.id, user_id: userId })
+          .insert({ question_id: question.id, user_id: userId })
           .select("id")
           .single<{ id: string }>();
         if (gameErr) throw gameErr;
         if (!cancelled) setGameId(game.id);
 
         // 6) Charger leaderboard
-        const { data: lb, error: lbErr } = await supabase.rpc("leaderboard_by_theme", {
-          p_slug: dynamicSlug,
-          p_limit: 10,
-        });
+        const { data: lb, error: lbErr } = await supabase
+          .from("games")
+          .select(`
+            final_score,
+            answers_count,
+            ended_at,
+            users!inner(pseudo)
+          `)
+          .eq("question_id", question.id)
+          .not("ended_at", "is", null)
+          .order("final_score", { ascending: false })
+          .limit(10);
         if (lbErr) throw lbErr;
         if (!cancelled) setLeaderboard(lb ?? []);
       } catch (e: any) {
