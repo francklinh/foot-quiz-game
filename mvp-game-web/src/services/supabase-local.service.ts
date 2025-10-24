@@ -187,11 +187,20 @@ class SupabaseLocalService {
   }
 
   async getQuestionAnswersWithPlayers(questionId: string) {
-    return this.request(`
-      question_answers?question_id=eq.${questionId}
-      &select=*,players(name,current_club,nationality)
-      &order=ranking.asc
-    `);
+    const url = `${SUPABASE_URL}/rest/v1/question_answers?question_id=eq.${questionId}&select=*,players(name,current_club,nationality)&order=ranking.asc`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    return response.json();
   }
 
   // Statistics
