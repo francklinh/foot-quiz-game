@@ -91,7 +91,6 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
   // Recharger les réponses quand selectedQuestionId change
   useEffect(() => {
     if (activeTab === 'questionAnswers' && selectedQuestionId) {
-      console.log('🔄 Rechargement des réponses pour selectedQuestionId:', selectedQuestionId);
       loadData();
     }
   }, [selectedQuestionId]);
@@ -113,12 +112,9 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
         
         // Charger les réponses si une question est sélectionnée
         if (selectedQuestionId) {
-          console.log('🔍 Chargement des réponses pour question ID:', selectedQuestionId);
           const data = await supabaseLocalService.getQuestionAnswersWithPlayers(selectedQuestionId);
-          console.log('📊 Réponses chargées:', data.length);
           setQuestionAnswers(data);
         } else {
-          console.log('🔍 Aucune question sélectionnée, réponses vidées');
           setQuestionAnswers([]);
         }
       }
@@ -513,11 +509,7 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
           </div>
 
           {selectedQuestionId ? (
-            <div>
-              <div className="mb-2 text-sm text-gray-600">
-                Debug: Question ID sélectionnée: {selectedQuestionId}
-              </div>
-              <div className="grid gap-4">
+            <div className="grid gap-4">
                 {questionAnswers.map((answer) => (
                 <div key={answer.id} className="bg-white p-4 rounded-lg shadow border">
                   <div className="flex justify-between items-start">
@@ -563,7 +555,6 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
                   Aucune réponse trouvée pour cette question.
                 </div>
               )}
-              </div>
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">
