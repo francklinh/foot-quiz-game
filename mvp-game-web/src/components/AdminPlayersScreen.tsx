@@ -32,9 +32,9 @@ interface ClubHistory {
   is_current: boolean;
 }
 
-// Types pour les positions et nationalités
-type PlayerPosition = 'Attaquant' | 'Milieu' | 'Défenseur' | 'Gardien';
-type Nationality = 'France' | 'Brazil' | 'Argentina' | 'Spain' | 'England' | 'Germany' | 'Italy' | 'Portugal' | 'Netherlands' | 'Belgium' | 'Poland' | 'Croatia' | 'Norway' | 'Egypt' | 'South Korea' | 'Japan' | 'Mexico' | 'USA' | 'Canada' | 'Australia' | 'Chile';
+// Types pour les positions et nationalités (plus flexibles)
+type PlayerPosition = 'Attaquant' | 'Milieu' | 'Défenseur' | 'Gardien' | string;
+type Nationality = 'France' | 'Brazil' | 'Argentina' | 'Spain' | 'England' | 'Germany' | 'Italy' | 'Portugal' | 'Netherlands' | 'Belgium' | 'Poland' | 'Croatia' | 'Norway' | 'Egypt' | 'South Korea' | 'Japan' | 'Mexico' | 'USA' | 'Canada' | 'Australia' | 'Chile' | string;
 
 const VALID_POSITIONS: PlayerPosition[] = ['Attaquant', 'Milieu', 'Défenseur', 'Gardien'];
 const VALID_NATIONALITIES: Nationality[] = ['France', 'Brazil', 'Argentina', 'Spain', 'England', 'Germany', 'Italy', 'Portugal', 'Netherlands', 'Belgium', 'Poland', 'Croatia', 'Norway', 'Egypt', 'South Korea', 'Japan', 'Mexico', 'USA', 'Canada', 'Australia', 'Chile'];
@@ -212,9 +212,9 @@ export function AdminPlayersScreen({ className = '' }: AdminPlayersScreenProps) 
       position: player.position,
       nationality: player.nationality,
       current_club: player.current_club,
-      club_history: player.club_history,
-      is_active: player.is_active,
-      is_verified: player.is_verified
+      club_history: player.club_history || [],
+      is_active: player.is_active || true,
+      is_verified: player.is_verified || false
     });
     setFormErrors([]);
     setShowEditModal(true);

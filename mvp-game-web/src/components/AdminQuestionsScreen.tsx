@@ -36,9 +36,9 @@ interface QuestionFilters {
   isActive: boolean | null;
 }
 
-// Types pour les jeux et difficultés
-type GameTypeEnum = 'TOP10' | 'GRILLE' | 'CLUB';
-type Difficulty = 'easy' | 'medium' | 'hard';
+// Types pour les jeux et difficultés (plus flexibles)
+type GameTypeEnum = 'TOP10' | 'GRILLE' | 'CLUB' | string;
+type Difficulty = 'easy' | 'medium' | 'hard' | string;
 
 const VALID_GAME_TYPES: GameTypeEnum[] = ['TOP10', 'GRILLE', 'CLUB'];
 const VALID_DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard'];
