@@ -1,22 +1,15 @@
 import { supabase } from '../lib/supabase';
 
+// Types and interfaces
 export interface Friend {
   id: string;
   user_id: string;
   friend_id: string;
-  status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
+  status: FriendshipStatus;
   created_at: string;
   accepted_at?: string;
-  friend?: {
-    id: string;
-    pseudo: string;
-    email: string;
-  };
-  user?: {
-    id: string;
-    pseudo: string;
-    email: string;
-  };
+  friend?: UserInfo;
+  user?: UserInfo;
 }
 
 export interface User {
@@ -24,6 +17,38 @@ export interface User {
   pseudo: string;
   email: string;
 }
+
+export interface UserInfo {
+  id: string;
+  pseudo: string;
+  email: string;
+}
+
+export type FriendshipStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED';
+export type FriendshipType = 'FRIENDS' | 'PENDING' | 'NONE';
+
+// Constants
+const MIN_SEARCH_LENGTH = 1;
+const MAX_SEARCH_LENGTH = 50;
+const DEFAULT_LIMIT = 10;
+const MAX_LIMIT = 100;
+
+// Error messages
+const ERROR_MESSAGES = {
+  INVALID_USER_ID: 'Invalid user ID',
+  SELF_FRIEND_REQUEST: 'Cannot send friend request to yourself',
+  FRIEND_REQUEST_EXISTS: 'Friend request already exists',
+  FRIENDSHIP_NOT_FOUND: 'Friendship not found',
+  GET_FRIENDS_FAILED: 'Failed to get friends',
+  SEND_REQUEST_FAILED: 'Failed to send friend request',
+  ACCEPT_REQUEST_FAILED: 'Failed to accept friend request',
+  REJECT_REQUEST_FAILED: 'Failed to reject friend request',
+  REMOVE_FRIEND_FAILED: 'Failed to remove friend',
+  GET_PENDING_FAILED: 'Failed to get pending requests',
+  SEARCH_USERS_FAILED: 'Failed to search users',
+  CHECK_FRIENDSHIP_FAILED: 'Failed to check friendship status',
+  GET_STATUS_FAILED: 'Failed to get friendship status'
+} as const;
 
 export class FriendsService {
   /**
@@ -59,9 +84,9 @@ export class FriendsService {
    * Send a friend request
    */
   async sendFriendRequest(fromUserId: string, toUserId: string): Promise<Friend> {
-    if (fromUserId === toUserId) {
-      throw new Error('Cannot send friend request to yourself');
-    }
+    this.validateUserId(fromUserId);
+    this.validateUserId(toUserId);
+    this.validateDifferentUsers(fromUserId, toUserId);
 
     try {
       const { data, error } = await supabase
@@ -83,7 +108,7 @@ export class FriendsService {
 
       if (error) {
         if (error.message.includes('duplicate key') || error.message.includes('unique constraint')) {
-          throw new Error('Friend request already exists');
+          throw new Error(ERROR_MESSAGES.FRIEND_REQUEST_EXISTS);
         }
         throw new Error(error.message);
       }
@@ -93,7 +118,7 @@ export class FriendsService {
       if (error instanceof Error && error.message.includes('already exists')) {
         throw error;
       }
-      throw new Error('Failed to send friend request');
+      throw new Error(ERROR_MESSAGES.SEND_REQUEST_FAILED);
     }
   }
 
@@ -204,18 +229,17 @@ export class FriendsService {
   /**
    * Search users by pseudo
    */
-  async searchUsers(searchQuery: string, limit: number = 10): Promise<User[]> {
-    try {
-      if (!searchQuery.trim()) {
-        return [];
-      }
+  async searchUsers(searchQuery: string, limit: number = DEFAULT_LIMIT): Promise<User[]> {
+    this.validateSearchQuery(searchQuery);
+    const validatedLimit = this.validateLimit(limit);
 
+    try {
       const { data, error } = await supabase
         .from('users')
         .select('id, pseudo, email')
-        .ilike('pseudo', `%${searchQuery}%`)
+        .ilike('pseudo', `%${searchQuery.trim()}%`)
         .order('pseudo', { ascending: true })
-        .limit(limit);
+        .limit(validatedLimit);
 
       if (error) {
         throw new Error(error.message);
@@ -223,7 +247,7 @@ export class FriendsService {
 
       return data || [];
     } catch (error) {
-      throw new Error('Failed to search users');
+      throw new Error(ERROR_MESSAGES.SEARCH_USERS_FAILED);
     }
   }
 
@@ -252,7 +276,10 @@ export class FriendsService {
   /**
    * Get friendship status between two users
    */
-  async getFriendshipStatus(userId1: string, userId2: string): Promise<'FRIENDS' | 'PENDING' | 'NONE'> {
+  async getFriendshipStatus(userId1: string, userId2: string): Promise<FriendshipType> {
+    this.validateUserId(userId1);
+    this.validateUserId(userId2);
+    
     try {
       const { data, error } = await supabase
         .from('friendships')
@@ -277,7 +304,70 @@ export class FriendsService {
 
       return 'NONE';
     } catch (error) {
-      throw new Error('Failed to get friendship status');
+      throw new Error(ERROR_MESSAGES.GET_STATUS_FAILED);
     }
+  }
+
+  /**
+   * Validate user ID
+   */
+  private validateUserId(userId: string): void {
+    if (!userId || typeof userId !== 'string' || userId.trim().length === 0) {
+      throw new Error(ERROR_MESSAGES.INVALID_USER_ID);
+    }
+  }
+
+  /**
+   * Validate search query
+   */
+  private validateSearchQuery(query: string): void {
+    if (!query || typeof query !== 'string') {
+      throw new Error('Invalid search query');
+    }
+    
+    const trimmedQuery = query.trim();
+    if (trimmedQuery.length < MIN_SEARCH_LENGTH || trimmedQuery.length > MAX_SEARCH_LENGTH) {
+      throw new Error(`Search query must be between ${MIN_SEARCH_LENGTH} and ${MAX_SEARCH_LENGTH} characters`);
+    }
+  }
+
+  /**
+   * Validate limit parameter
+   */
+  private validateLimit(limit: number): number {
+    if (limit < 1 || limit > MAX_LIMIT) {
+      return DEFAULT_LIMIT;
+    }
+    return limit;
+  }
+
+  /**
+   * Check if users are the same
+   */
+  private validateDifferentUsers(userId1: string, userId2: string): void {
+    if (userId1 === userId2) {
+      throw new Error(ERROR_MESSAGES.SELF_FRIEND_REQUEST);
+    }
+  }
+
+  /**
+   * Build friendship query with relations
+   */
+  private buildFriendshipQuery() {
+    return supabase
+      .from('friendships')
+      .select(`
+        *,
+        friend:users!friendships_friend_id_fkey(
+          id,
+          pseudo,
+          email
+        ),
+        user:users!friendships_user_id_fkey(
+          id,
+          pseudo,
+          email
+        )
+      `);
   }
 }
