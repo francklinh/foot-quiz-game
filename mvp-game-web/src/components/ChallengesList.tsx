@@ -26,7 +26,7 @@ export function ChallengesList({
     try {
       setLoading(true);
       setError(null);
-      const challengesList = await challengesService.getUserChallenges(userId);
+      const challengesList = await challengesService.getUserChallenges(userId, 'sent');
       setChallenges(challengesList);
     } catch (err) {
       setError('Error loading challenges');

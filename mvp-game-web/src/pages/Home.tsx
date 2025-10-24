@@ -42,9 +42,9 @@ export function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Motifs ballon en filigrane */}
-      <div className="absolute inset-0 opacity-5">
+    <div className="min-h-screen bg-pattern">
+      {/* Motifs ballon en filigrane avec meilleur contraste */}
+      <div className="absolute inset-0 opacity-10">
         <div className="absolute top-10 left-10 w-20 h-20 bg-primary rounded-full"></div>
         <div className="absolute top-32 right-16 w-16 h-16 bg-primary rounded-full"></div>
         <div className="absolute bottom-20 left-20 w-12 h-12 bg-primary rounded-full"></div>
@@ -60,7 +60,7 @@ export function Home() {
           <h1 className="text-4xl font-bold text-primary mb-2 font-poppins">
             {getModeTitle()}
           </h1>
-          <p className="text-text/70 text-lg">
+          <p className="text-secondary text-lg">
             Choisissez votre jeu préféré
           </p>
         </div>
@@ -70,8 +70,8 @@ export function Home() {
               key={module.title}
               className={`relative rounded-xl p-8 shadow-lg transition-all duration-300 transform hover:scale-105 ${
                 module.active
-                  ? 'bg-primary hover:bg-primary-dark cursor-pointer'
-                  : 'bg-accent-light opacity-50 cursor-not-allowed'
+                  ? 'card-colored hover-lift cursor-pointer'
+                  : 'card-accent opacity-50 cursor-not-allowed'
               }`}
               style={{
                 animationDelay: `${index * 0.1}s`,
@@ -82,7 +82,7 @@ export function Home() {
                 <Link to={module.path} className="block h-full">
                   <div className="text-center h-full flex flex-col justify-center">
                     <div className="text-6xl mb-4">🏆</div>
-                    <h3 className="text-2xl font-bold text-white uppercase tracking-wider">
+                    <h3 className="text-2xl font-bold text-inverse uppercase tracking-wider">
                       {module.title}
                     </h3>
                   </div>
@@ -90,7 +90,7 @@ export function Home() {
               ) : (
                 <div className="text-center h-full flex flex-col justify-center">
                   <div className="text-6xl mb-4 opacity-50">🔒</div>
-                  <h3 className="text-2xl font-bold text-text/50 uppercase tracking-wider">
+                  <h3 className="text-2xl font-bold text-muted uppercase tracking-wider">
                     {module.title}
                   </h3>
                 </div>

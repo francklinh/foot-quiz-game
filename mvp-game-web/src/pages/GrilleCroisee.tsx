@@ -335,7 +335,7 @@ export function GrilleCroisee() {
         const totalReward = baseReward + perfectBonus + speedBonus;
         
         if (totalReward > 0) {
-          await cerisesService.addCerises(userId, totalReward, `Grille Croisée - Score: ${gameState.totalScore}, Correct: ${correctAnswers}/9`);
+          await cerisesService.addCerises(userId, totalReward);
           setCerisesEarned(totalReward);
           
           // Update user cerises display

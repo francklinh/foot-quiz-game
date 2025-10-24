@@ -162,7 +162,7 @@ export class ShopService {
       }
 
       // Deduct cerises
-      await this.cerisesService.spendCerises(userId, item.price, `Purchase: ${item.name}`);
+      await this.cerisesService.spendCerises(userId, item.price);
 
       // Record purchase
       const { data, error } = await supabase

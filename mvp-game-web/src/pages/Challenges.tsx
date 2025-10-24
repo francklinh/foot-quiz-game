@@ -77,7 +77,7 @@ export function Challenges() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-pattern">
       {/* Header */}
       <div className="bg-gradient-to-r from-primary to-secondary text-white py-8">
         <div className="max-w-6xl mx-auto px-4">

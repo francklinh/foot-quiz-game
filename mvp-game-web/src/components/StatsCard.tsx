@@ -15,19 +15,19 @@ interface StatsCardProps {
 const getColorClasses = (color: string) => {
   switch (color) {
     case 'primary':
-      return 'bg-primary text-white';
+      return 'bg-primary text-inverse';
     case 'secondary':
-      return 'bg-secondary text-white';
+      return 'bg-secondary text-inverse';
     case 'accent':
-      return 'bg-accent text-text';
+      return 'bg-accent text-primary';
     case 'success':
-      return 'bg-green-500 text-white';
+      return 'bg-success text-inverse';
     case 'warning':
-      return 'bg-yellow-500 text-white';
+      return 'bg-warning text-inverse';
     case 'danger':
-      return 'bg-red-500 text-white';
+      return 'bg-danger text-inverse';
     default:
-      return 'bg-gray-500 text-white';
+      return 'bg-secondary text-inverse';
   }
 };
 

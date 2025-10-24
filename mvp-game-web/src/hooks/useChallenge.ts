@@ -39,12 +39,15 @@ export function useChallenge() {
     if (!challenge || !challengeId) return;
 
     try {
-      await challengesService.completeChallenge(
-        challengeId,
-        score,
-        timeTaken,
-        'TOP10' // Assuming this is called from Top10 game
-      );
+      const results = {
+        challenger_score: challenge.challenger_id === challenge.challenger_id ? score : 0,
+        challenged_score: challenge.challenger_id === challenge.challenger_id ? 0 : score,
+        challenger_time: challenge.challenger_id === challenge.challenger_id ? timeTaken : 0,
+        challenged_time: challenge.challenger_id === challenge.challenger_id ? 0 : timeTaken,
+        winner_id: challenge.challenger_id // Simplified for now
+      };
+
+      await challengesService.completeChallenge(challengeId, results);
       
       return true;
     } catch (err) {

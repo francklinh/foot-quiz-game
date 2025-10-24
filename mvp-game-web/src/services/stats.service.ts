@@ -137,7 +137,7 @@ export class StatsService {
       ] = await Promise.all([
         this.cerisesService.getUserCerises(userId),
         this.friendsService.getFriends(userId),
-        this.challengesService.getUserChallenges(userId),
+        this.challengesService.getUserChallenges(userId, 'sent'),
         this.shopService.getUserPurchases(userId),
         this.getGameStats(userId),
         this.getUserAchievements(userId),
