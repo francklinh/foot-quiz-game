@@ -13,6 +13,7 @@ import {
   GrilleConfig,
   GrilleAnswer
 } from '../services/grille-croisee';
+import { CerisesService } from '../services/cerises.service';
 
 // Types pour la grille
 type GridCell = {
@@ -48,6 +49,16 @@ type GrilleGameState = {
 };
 
 export function GrilleCroisee() {
+  // Services
+  const cerisesService = new CerisesService();
+  
+  // Auth state
+  const [userId, setUserId] = useState<string | null>(null);
+  
+  // Cerises state
+  const [userCerises, setUserCerises] = useState<number>(0);
+  const [cerisesEarned, setCerisesEarned] = useState<number>(0);
+
   // États du jeu
   const [gameState, setGameState] = useState<GameState>({
     grid: [],
@@ -79,6 +90,36 @@ export function GrilleCroisee() {
   const [cellSuggestions, setCellSuggestions] = useState<string[]>([]);
   const [showCellSuggestions, setShowCellSuggestions] = useState(false);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+
+  // Load user authentication and cerises
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          setUserId(session.user.id);
+          
+          // Load user cerises
+          const balance = await cerisesService.getUserCerises(session.user.id);
+          setUserCerises(balance);
+        }
+      } catch (error) {
+        console.error('Failed to load user data:', error);
+      }
+    };
+    
+    loadUserData();
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUserId(session.user.id);
+      } else {
+        setUserId(null);
+      }
+    });
+    
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Charger les données de la grille depuis la base de données
   const loadGrilleData = useCallback(async () => {
@@ -281,6 +322,28 @@ export function GrilleCroisee() {
         await loadLeaderboard();
       } catch (error) {
         console.error('Erreur lors de la sauvegarde du score:', error);
+      }
+    }
+    
+    // Handle cerises rewards
+    if (userId) {
+      try {
+        // Calculate cerises based on performance
+        const baseReward = Math.max(1, Math.floor(gameState.totalScore / 20)); // 1 cerise minimum, +1 per 20 points
+        const perfectBonus = isPerfect ? 10 : 0; // Bonus for perfect score
+        const speedBonus = timeTaken && timeTaken < 60000 ? 3 : 0; // Bonus for completing under 1 minute
+        const totalReward = baseReward + perfectBonus + speedBonus;
+        
+        if (totalReward > 0) {
+          await cerisesService.addCerises(userId, totalReward, `Grille Croisée - Score: ${gameState.totalScore}, Correct: ${correctAnswers}/9`);
+          setCerisesEarned(totalReward);
+          
+          // Update user cerises display
+          const newBalance = await cerisesService.getUserCerises(userId);
+          setUserCerises(newBalance);
+        }
+      } catch (error) {
+        console.error('Failed to add cerises reward:', error);
       }
     }
     
@@ -802,8 +865,23 @@ export function GrilleCroisee() {
                       {endMessage.text}
                     </h3>
                     <p className="text-white text-xl mb-6">
-                      Score final: {gameState.totalScore} 🍒
+                      Score final: {gameState.totalScore} 🎯
                     </p>
+                    
+                    {cerisesEarned > 0 && (
+                      <div className="bg-secondary rounded-2xl p-4 border-2 border-primary mb-6">
+                        <div className="text-2xl font-bold text-primary mb-2">
+                          🍒 Cerises gagnées !
+                        </div>
+                        <div className="text-3xl font-black text-primary">
+                          +{cerisesEarned} cerises
+                        </div>
+                        <div className="text-sm text-primary/70 mt-1">
+                          Solde total: {userCerises} cerises
+                        </div>
+                      </div>
+                    )}
+                    
                     {gameState.perfectScore && (
                       <p className="text-yellow-400 text-xl mb-6 animate-pulse">
                         🎆 Grille parfaite ! 🎆

@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 // import { useParams } from "react-router-dom"; // Pas utilisé pour l'instant
 import { AutocompleteInput } from "../components/AutocompleteInput";
 import { supabase } from "../lib/supabase";
+import { CerisesService } from "../services/cerises.service";
+import { ChallengesService } from "../services/challenges.service";
 
 // --- Types DB ---
 type ThemeRow = { id: string; slug: string; title: string };
@@ -75,6 +77,14 @@ export function Top10() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  // Services
+  const cerisesService = new CerisesService();
+  const challengesService = new ChallengesService();
+  
+  // Cerises state
+  const [userCerises, setUserCerises] = useState<number>(0);
+  const [cerisesEarned, setCerisesEarned] = useState<number>(0);
+
   // UI / Game state
   const [title, setTitle] = useState("Top 10");
   const [loading, setLoading] = useState(false);
@@ -101,6 +111,22 @@ export function Top10() {
 
   const gameOver = timeLeft <= 0 || answers.length >= 10;
   const replayBtnRef = useRef<HTMLButtonElement | null>(null);
+
+  // Load user cerises
+  useEffect(() => {
+    if (!userId) return;
+    
+    const loadUserCerises = async () => {
+      try {
+        const balance = await cerisesService.getUserCerises(userId);
+        setUserCerises(balance);
+      } catch (error) {
+        console.error('Failed to load user cerises:', error);
+      }
+    };
+    
+    loadUserCerises();
+  }, [userId]);
 
   // Timer
   useEffect(() => {
@@ -352,6 +378,33 @@ export function Top10() {
       }
     })();
   }, [gameOver, gameId, score, answers.length, gameMode, league, selectedYear]);
+
+  // Handle cerises rewards at game end
+  useEffect(() => {
+    if (!gameOver || !userId || !gameStarted) return;
+    
+    const handleCerisesReward = async () => {
+      try {
+        // Calculate cerises based on score
+        const baseReward = Math.max(1, Math.floor(score / 10)); // 1 cerise minimum, +1 per 10 points
+        const bonusReward = answers.length >= 8 ? 5 : answers.length >= 4 ? 2 : 0; // Bonus for good performance
+        const totalReward = baseReward + bonusReward;
+        
+        if (totalReward > 0) {
+          await cerisesService.addCerises(userId, totalReward, `Top10 ${gameMode} - Score: ${score}`);
+          setCerisesEarned(totalReward);
+          
+          // Update user cerises display
+          const newBalance = await cerisesService.getUserCerises(userId);
+          setUserCerises(newBalance);
+        }
+      } catch (error) {
+        console.error('Failed to add cerises reward:', error);
+      }
+    };
+    
+    handleCerisesReward();
+  }, [gameOver, userId, gameStarted, score, answers.length, gameMode]);
 
   // Couleur timer (utilisée dans le JSX)
   // const timeColor = () => {
@@ -667,8 +720,22 @@ export function Top10() {
               : "On se refait une partie ? 🔄"}
           </p>
           <div className="text-4xl font-black text-primary">
-            {score} cerises ! 🍒
+            {score} points ! 🎯
           </div>
+          
+          {cerisesEarned > 0 && (
+            <div className="bg-secondary rounded-2xl p-4 border-2 border-primary">
+              <div className="text-2xl font-bold text-primary mb-2">
+                🍒 Cerises gagnées !
+              </div>
+              <div className="text-3xl font-black text-primary">
+                +{cerisesEarned} cerises
+              </div>
+              <div className="text-sm text-primary/70 mt-1">
+                Solde total: {userCerises} cerises
+              </div>
+            </div>
+          )}
 
           {/* Récapitulatif des réponses */}
           <div className="bg-white rounded-3xl shadow-2xl p-6 text-left border border-accent-light">
