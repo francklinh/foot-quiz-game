@@ -1,98 +1,69 @@
-import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { SplashScreen } from "./pages/SplashScreen";
+import { ModeSelection } from "./pages/ModeSelection";
+import { Concurrents } from "./pages/Concurrents";
 import { Home } from "./pages/Home";
+import { Ligues } from "./pages/Ligues";
+import { LigueDetail } from "./pages/LigueDetail";
+import { Profil } from "./pages/Profil";
+import { Jeux } from "./pages/Jeux";
+import { Stats } from "./pages/Stats";
+import { Shop } from "./pages/Shop";
+import { Reglages } from "./pages/Reglages";
+import { Regles } from "./pages/Regles";
 import { Top10 } from "./pages/Top10";
 import { GrilleCroisee } from "./pages/GrilleCroisee";
 import { ClubExpress } from "./pages/ClubExpress";
 import { TestSupabase } from "./pages/TestSupabase";
 import { Admin } from "./pages/Admin";
-import { AuthButtons } from "./components/AuthButtons";
 import { ProtectedRoute } from "./components/ProtectedRoute";
-import { AdminIndicator } from "./components/AdminIndicator";
-import logo from "./logo.svg";
+import { GlobalHeader } from "./components/GlobalHeader";
 
 function App() {
   return (
     <Router>
       <div className="min-h-screen bg-background font-poppins">
-        {/* Header avec logo et navigation */}
-        <header className="bg-gradient-to-r from-primary to-primary-dark shadow-lg">
-          <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-20">
-              {/* Logo et titre */}
-              <div className="flex items-center space-x-4">
-                <img src={logo} alt="Clafootix" className="h-12 w-12" />
-                <div className="text-white">
-                  <h1 className="text-2xl font-bold">Clafootix</h1>
-                  <p className="text-sm text-accent">Jeux de Football</p>
-                </div>
-              </div>
-
-              {/* Navigation */}
-              <div className="hidden md:flex items-center space-x-8">
-                <Link 
-                  to="/" 
-                  className="text-white hover:text-secondary transition-colors duration-200 font-medium"
-                >
-                  Accueil
-                </Link>
-                <Link 
-                  to="/top10" 
-                  className="text-white hover:text-secondary transition-colors duration-200 font-medium"
-                >
-                  Top 10
-                </Link>
-                <Link 
-                  to="/grille" 
-                  className="text-white hover:text-secondary transition-colors duration-200 font-medium"
-                >
-                  Grille Croisée
-                </Link>
-                <Link 
-                  to="/club" 
-                  className="text-white hover:text-secondary transition-colors duration-200 font-medium"
-                >
-                  Club Express
-                </Link>
-                <Link 
-                  to="/test" 
-                  className="text-white hover:text-secondary transition-colors duration-200 font-medium"
-                >
-                  Test
-                </Link>
-                <Link 
-                  to="/admin" 
-                  className="text-secondary hover:text-secondary-light transition-colors duration-200 font-bold flex items-center space-x-1"
-                >
-                  <span>🛠️</span>
-                  <span>Admin</span>
-                </Link>
-              </div>
-
-              {/* Auth à droite */}
-              <div className="flex items-center space-x-4">
-                <AdminIndicator />
-                <AuthButtons />
-              </div>
-            </div>
-          </nav>
-        </header>
-
-        {/* Contenu principal */}
-        <main className="flex-1">
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/top10" element={<Top10 />} />
-        <Route path="/grille" element={<GrilleCroisee />} />
-        <Route path="/club" element={<ClubExpress />} />
-        <Route path="/test" element={<TestSupabase />} /> {/* 👈 added test route */}
-        <Route path="/admin" element={
-          <ProtectedRoute>
-            <Admin />
-          </ProtectedRoute>
-        } /> {/* 👈 protected admin route */}
-        <Route path="/top10/:slug" element={<Top10 />} />
-      </Routes>
-        </main>
+        <Routes>
+          {/* Page d'ouverture sans header */}
+          <Route path="/splash" element={<SplashScreen />} />
+          
+          {/* Toutes les autres pages avec header global */}
+          <Route path="/*" element={
+            <>
+              <GlobalHeader />
+              <Routes>
+                {/* Page de sélection de mode */}
+                <Route path="/" element={<ModeSelection />} />
+                <Route path="/concurrents" element={<Concurrents />} />
+                <Route path="/home" element={<Home />} />
+                <Route path="/ligues" element={<Ligues />} />
+                <Route path="/ligue/:id" element={<LigueDetail />} />
+                
+                {/* Pages principales */}
+                <Route path="/profil" element={<Profil />} />
+                <Route path="/jeux" element={<Jeux />} />
+                <Route path="/stats" element={<Stats />} />
+                <Route path="/shop" element={<Shop />} />
+                <Route path="/reglages" element={<Reglages />} />
+                <Route path="/regles" element={<Regles />} />
+                
+                {/* Pages de jeu */}
+                <Route path="/top10" element={<Top10 />} />
+                <Route path="/top10/:slug" element={<Top10 />} />
+                <Route path="/grille" element={<GrilleCroisee />} />
+                <Route path="/club" element={<ClubExpress />} />
+                
+                {/* Pages techniques */}
+                <Route path="/test" element={<TestSupabase />} />
+                <Route path="/admin" element={
+                  <ProtectedRoute>
+                    <Admin />
+                  </ProtectedRoute>
+                } />
+              </Routes>
+            </>
+          } />
+        </Routes>
       </div>
     </Router>
   );

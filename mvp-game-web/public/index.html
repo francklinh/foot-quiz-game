@@ -25,6 +25,30 @@
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
     <title>Clafootix - Jeux de Football</title>
+    <script>
+      // Tailwind CDN custom theme
+      tailwind = window.tailwind || {};
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: '#C92A2A',
+              'primary-dark': '#A61E1E',
+              secondary: '#FFD43B',
+              'secondary-dark': '#E6BF35',
+              background: '#F5F5F5',
+              text: '#000000',
+              accent: '#FFF4E6',
+              'accent-light': '#E0E0E0',
+              white: '#FFFFFF',
+            },
+            fontFamily: {
+              poppins: ['Poppins', 'sans-serif'],
+            },
+          }
+        }
+      };
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts - Poppins -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -32,7 +56,7 @@
       @layer base {
         body {
           font-family: 'Poppins', sans-serif;
-          background-color: #F8E8C0;
+          background-color: #F5F5F5; /* background */
         }
       }
     </style>

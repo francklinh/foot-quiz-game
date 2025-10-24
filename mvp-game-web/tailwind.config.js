@@ -6,19 +6,21 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Charte graphique CLAFOOTIX
-        primary: '#8B1C1C',      // Rouge principal
-        secondary: '#F4C542',     // Jaune secondaire
-        background: '#F8E8C0',    // Beige de fond
-        text: '#1E1E1E',          // Texte principal
-        accent: '#FFF9E8',        // Accent clair
-        // Couleurs dérivées
-        'primary-dark': '#6B1515',
-        'primary-light': '#A52A2A',
-        'secondary-dark': '#D4A842',
-        'secondary-light': '#F5D042',
-        'background-dark': '#F0D8A0',
-        'background-light': '#FCF0E0',
+        // Nouvelle palette selon les specs
+        primary: '#C92A2A',      // Rouge principal
+        'primary-dark': '#A61E1E', // Rouge foncé
+        secondary: '#FFD43B',     // Jaune/Or
+        'secondary-dark': '#E6BF35', // Jaune plus foncé
+        background: '#F5F5F5',    // Gris clair
+        text: '#000000',          // Noir
+        accent: '#FFF4E6',        // Beige
+        'accent-light': '#E0E0E0', // Gris moyen
+        white: '#FFFFFF',         // Blanc
+        // Couleurs dérivées pour compatibilité
+        'primary-light': '#E74C3C',
+        'secondary-light': '#FFE066',
+        'background-dark': '#E8E8E8',
+        'background-light': '#FAFAFA',
       },
       fontFamily: {
         'poppins': ['Poppins', 'sans-serif'],

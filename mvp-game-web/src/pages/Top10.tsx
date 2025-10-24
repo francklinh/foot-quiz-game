@@ -393,8 +393,18 @@ export function Top10() {
   }
 
   return (
-    <div className="min-h-screen bg-soccer-pattern p-4">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen bg-white relative p-4">
+      {/* Motifs ballon en filigrane */}
+      <div className="absolute inset-0 opacity-5">
+        <div className="absolute top-10 left-10 w-20 h-20 bg-primary rounded-full"></div>
+        <div className="absolute top-32 right-16 w-16 h-16 bg-primary rounded-full"></div>
+        <div className="absolute bottom-20 left-20 w-12 h-12 bg-primary rounded-full"></div>
+        <div className="absolute bottom-32 right-10 w-24 h-24 bg-primary rounded-full"></div>
+        <div className="absolute top-1/2 left-1/4 w-8 h-8 bg-primary rounded-full"></div>
+        <div className="absolute top-1/3 right-1/3 w-14 h-14 bg-primary rounded-full"></div>
+      </div>
+
+      <div className="max-w-4xl mx-auto space-y-6 relative z-10">
         {/* Header avec sélecteurs */}
         <header className="space-y-6">
           <div className="text-center">
@@ -405,7 +415,7 @@ export function Top10() {
           </div>
         
         {/* Sélecteurs de configuration */}
-        <div className="bg-white/90 backdrop-blur rounded-2xl shadow-xl p-6 space-y-4">
+        <div className="bg-white rounded-2xl shadow-xl p-6 space-y-4 border border-accent-light">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Mode de jeu */}
             <div>
@@ -462,14 +472,14 @@ export function Top10() {
           {!gameStarted && (
             <button
               onClick={() => setGameStarted(true)}
-              className="w-full px-6 py-4 rounded-2xl bg-gradient-to-r from-green-500 to-blue-500 text-white text-xl font-black hover:from-green-600 hover:to-blue-600 transform hover:scale-105 transition-all shadow-xl"
+              className="w-full px-6 py-4 rounded-2xl bg-primary hover:bg-primary-dark text-white text-xl font-black transform hover:scale-105 transition-all shadow-xl"
             >
               🚀 LANCER LA PARTIE 🚀
             </button>
           )}
 
           {gameStarted && !gameOver && (
-            <p className="text-xs text-center text-purple-600 font-semibold">
+            <p className="text-xs text-center text-primary font-semibold">
               🔒 Sélecteurs verrouillés pendant la partie
             </p>
           )}
@@ -478,33 +488,33 @@ export function Top10() {
 
       {/* Score et compteurs - Visible seulement si partie lancée */}
       {gameStarted && (
-        <div className="bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-4">
+        <div className="bg-white rounded-3xl shadow-2xl p-4 border border-accent-light">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 flex-wrap">
               {/* Timer */}
               <div className={`px-4 py-2 rounded-2xl font-black text-lg shadow-lg ${
                 timeLeft <= 10 
-                  ? "bg-gradient-to-r from-red-500 to-pink-500 text-white animate-pulse" 
+                  ? "bg-primary text-white animate-pulse" 
                   : timeLeft <= 20
-                  ? "bg-gradient-to-r from-yellow-400 to-orange-500 text-white"
-                  : "bg-gradient-to-r from-green-400 to-teal-500 text-white"
+                  ? "bg-secondary text-text"
+                  : "bg-accent text-text"
               }`}>
                 {loading ? "⏳" : `⏱️ ${timeLeft}s`}
               </div>
 
               {/* Streak */}
-              <div className="px-4 py-2 rounded-2xl bg-gradient-to-r from-orange-400 to-red-500 text-white font-black text-lg shadow-lg">
+              <div className="px-4 py-2 rounded-2xl bg-primary text-white font-black text-lg shadow-lg">
                 🔥 {streak}
               </div>
 
               {/* Réponses */}
-              <div className="px-4 py-2 rounded-2xl bg-gradient-to-r from-blue-400 to-purple-500 text-white font-black text-lg shadow-lg">
+              <div className="px-4 py-2 rounded-2xl bg-secondary text-text font-black text-lg shadow-lg">
                 ✅ {answers.length}/10
               </div>
             </div>
 
             {/* Score cerises */}
-            <div className="px-6 py-2 rounded-2xl bg-gradient-to-r from-pink-400 to-rose-500 text-white font-black text-2xl shadow-lg">
+            <div className="px-6 py-2 rounded-2xl bg-primary text-white font-black text-2xl shadow-lg">
               🍒 {score}
             </div>
           </div>
@@ -540,11 +550,11 @@ export function Top10() {
 
       {/* Réponses trouvées */}
       {gameStarted && answers.length > 0 && (
-        <div className="bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-6">
-          <h3 className="font-black text-green-600 mb-3 text-lg">🎯 Tes réponses :</h3>
+        <div className="bg-white rounded-3xl shadow-2xl p-6 border border-accent-light">
+          <h3 className="font-black text-primary mb-3 text-lg">🎯 Tes réponses :</h3>
           <div className="grid grid-cols-2 gap-2">
             {answers.map((a, i) => (
-              <div key={i} className="bg-gradient-to-r from-green-100 to-emerald-100 border-2 border-green-400 rounded-xl px-4 py-2 font-bold text-green-800 flex items-center gap-2">
+              <div key={i} className="bg-primary/10 border-2 border-red-600 rounded-xl px-4 py-2 font-bold text-primary flex items-center gap-2">
                 <span className="text-lg">✅</span>
                 <span>{a}</span>
               </div>
@@ -555,8 +565,8 @@ export function Top10() {
 
       {/* 🎯 Aperçu progressif des réponses (pendant le jeu) */}
       {gameStarted && !gameOver && allValidAnswers.length > 0 && (
-        <div className="bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-6">
-          <h3 className="font-black text-purple-600 mb-3 text-lg">👀 Aperçu du défi :</h3>
+        <div className="bg-white rounded-3xl shadow-2xl p-6 border border-accent-light">
+          <h3 className="font-black text-primary mb-3 text-lg">👀 Aperçu du défi :</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Colonne gauche : joueurs 1-5 */}
             <div className="space-y-3">
@@ -569,30 +579,30 @@ export function Top10() {
                 return (
                   <div
                     key={index}
-                    className="flex items-center gap-2 p-3 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50"
+                    className="flex items-center gap-2 p-3 rounded-xl border-2 border-accent-light bg-white"
                   >
-                    <span className="text-2xl font-bold text-purple-600">
+                    <span className="text-2xl font-bold text-primary">
                       {answer.ranking || (index + 1)}.
                     </span>
                     <span className="text-2xl">
                       {flag}
                     </span>
                     <span 
-                      className={`font-bold text-gray-800 flex-1 transition-all duration-500 ${
+                      className={`font-bold text-text flex-1 transition-all duration-500 ${
                         unblurred ? "" : "blur-sm"
                       }`}
                     >
                       {answer.answer}
                     </span>
                     {statValue && (
-                      <span className={`text-sm font-semibold text-gray-600 bg-gray-100 px-2 py-1 rounded transition-all duration-500 ${
+                      <span className={`text-sm font-semibold text-text bg-accent px-2 py-1 rounded transition-all duration-500 ${
                         unblurred ? "" : "blur-sm"
                       }`}>
                         {statValue} {statUnit}
                       </span>
                     )}
                     {unblurred && (
-                      <span className="text-green-500 text-lg">✅</span>
+                      <span className="text-primary text-lg">✅</span>
                     )}
                   </div>
                 );
@@ -610,30 +620,30 @@ export function Top10() {
                 return (
                   <div
                     key={index + 5}
-                    className="flex items-center gap-2 p-3 rounded-xl border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50"
+                    className="flex items-center gap-2 p-3 rounded-xl border-2 border-accent-light bg-white"
                   >
-                    <span className="text-2xl font-bold text-purple-600">
+                    <span className="text-2xl font-bold text-primary">
                       {answer.ranking || (index + 6)}.
                     </span>
                     <span className="text-2xl">
                       {flag}
                     </span>
                     <span 
-                      className={`font-bold text-gray-800 flex-1 transition-all duration-500 ${
+                      className={`font-bold text-text flex-1 transition-all duration-500 ${
                         unblurred ? "" : "blur-sm"
                       }`}
                     >
                       {answer.answer}
                     </span>
                     {statValue && (
-                      <span className={`text-sm font-semibold text-gray-600 bg-gray-100 px-2 py-1 rounded transition-all duration-500 ${
+                      <span className={`text-sm font-semibold text-text bg-accent px-2 py-1 rounded transition-all duration-500 ${
                         unblurred ? "" : "blur-sm"
                       }`}>
                         {statValue} {statUnit}
                       </span>
                     )}
                     {unblurred && (
-                      <span className="text-green-500 text-lg">✅</span>
+                      <span className="text-primary text-lg">✅</span>
                     )}
                   </div>
                 );
@@ -645,23 +655,23 @@ export function Top10() {
 
       {/* Fin de partie */}
       {gameOver && gameStarted && (
-        <div className="bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-6 text-center space-y-4">
+        <div className="bg-white rounded-3xl shadow-2xl p-6 text-center space-y-4 border border-accent-light">
           <div className="text-6xl mb-2">
             {answers.length >= 8 ? "🏆" : answers.length >= 4 ? "👍" : "💪"}
           </div>
-          <p className="text-2xl font-black bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+          <p className="text-2xl font-black text-primary">
             {answers.length >= 8
               ? "LÉGENDE ! Triplé parfait ! 🍒🍒🍒"
               : answers.length >= 4
               ? "Pas mal ! Encore un effort 💪"
               : "On se refait une partie ? 🔄"}
           </p>
-          <div className="text-4xl font-black text-pink-500">
+          <div className="text-4xl font-black text-primary">
             {score} cerises ! 🍒
           </div>
 
           {/* Récapitulatif des réponses */}
-          <div className="bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-6 text-left">
+          <div className="bg-white rounded-3xl shadow-2xl p-6 text-left border border-accent-light">
             <h3 className="text-xl font-black text-gray-800 mb-4 text-center">
               📋 Récapitulatif des réponses
             </h3>

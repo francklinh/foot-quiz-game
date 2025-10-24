@@ -445,7 +445,16 @@ export function GrilleCroisee() {
   };
 
   return (
-    <div className="min-h-screen bg-soccer-pattern relative overflow-hidden">
+    <div className="min-h-screen bg-white relative overflow-hidden">
+      {/* Motifs ballon en filigrane */}
+      <div className="absolute inset-0 opacity-5">
+        <div className="absolute top-10 left-10 w-20 h-20 bg-primary rounded-full"></div>
+        <div className="absolute top-32 right-16 w-16 h-16 bg-primary rounded-full"></div>
+        <div className="absolute bottom-20 left-20 w-12 h-12 bg-primary rounded-full"></div>
+        <div className="absolute bottom-32 right-10 w-24 h-24 bg-primary rounded-full"></div>
+        <div className="absolute top-1/2 left-1/4 w-8 h-8 bg-primary rounded-full"></div>
+        <div className="absolute top-1/3 right-1/3 w-14 h-14 bg-primary rounded-full"></div>
+      </div>
       {/* Fond avec ballon stylisé */}
       <div className="absolute inset-0 flex items-center justify-center opacity-10">
         <div className="w-96 h-96 rounded-full bg-secondary/20 relative">
@@ -467,21 +476,23 @@ export function GrilleCroisee() {
           <h1 className="text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary mb-4 drop-shadow-lg">
             ⚡ Grille Croisée ⚡
           </h1>
-          <p className="text-xl text-text/80 font-medium">Trouve les joueurs qui croisent clubs et nations !</p>
+          <div className="inline-block bg-primary text-white px-4 py-2 rounded-lg font-semibold">
+            Trouve les joueurs qui croisent nationalités et clubs de Ligue 1
+          </div>
         </div>
 
         {/* Compteurs */}
         <div className="flex justify-between items-center mb-8">
-          <div className="flex items-center gap-3 bg-white/20 backdrop-blur rounded-xl px-4 py-2 shadow-lg">
+          <div className="flex items-center gap-3 bg-primary rounded-xl px-4 py-2 shadow-lg text-white">
             <span className="text-2xl animate-pulse-slow">🔥</span>
-            <span className="text-xl font-bold text-white">
+            <span className="text-xl font-bold">
               Streak: {gameState.currentStreak}
             </span>
           </div>
           
-          <div className="flex items-center gap-3 bg-white/20 backdrop-blur rounded-xl px-4 py-2 shadow-lg">
+          <div className="flex items-center gap-3 bg-primary rounded-xl px-4 py-2 shadow-lg text-white">
             <span className="text-2xl animate-bounce-slow">🍒</span>
-            <span className="text-xl font-bold text-white">
+            <span className="text-xl font-bold">
               Score: {gameState.totalScore}
             </span>
           </div>
@@ -514,13 +525,13 @@ export function GrilleCroisee() {
         {/* Grille */}
         {gameState.gameStarted && (
           <div className="max-w-4xl mx-auto">
-            <div className="bg-white/10 backdrop-blur rounded-3xl p-6 shadow-2xl">
+        <div className="bg-white rounded-3xl p-6 shadow-2xl border border-accent-light">
               {/* Labels des colonnes */}
               <div className="grid grid-cols-4 gap-4 mb-4">
                 <div></div>
                 {grilleState.config?.col_labels.slice(0, 3).map((label, index) => (
                   <div key={index} className="text-center">
-                    <div className="bg-blue-600 text-white p-3 rounded-xl font-bold text-sm">
+                    <div className="bg-primary text-white p-3 rounded-xl font-bold text-sm">
                       {getDisplayLabel(label, grilleState.config?.col_type || 'club')}
                     </div>
                   </div>
@@ -532,7 +543,7 @@ export function GrilleCroisee() {
                 <div key={rowIndex} className="grid grid-cols-4 gap-4 mb-4">
                   {/* Label de la ligne */}
                   <div className="flex items-center justify-center">
-                    <div className="bg-green-600 text-white p-3 rounded-xl font-bold text-sm">
+                    <div className="bg-primary text-white p-3 rounded-xl font-bold text-sm">
                       {getDisplayLabel(grilleState.config?.row_labels[rowIndex] || '', grilleState.config?.row_type || 'nationality')}
                     </div>
                   </div>
@@ -542,7 +553,7 @@ export function GrilleCroisee() {
                     <div key={cell.id} className="relative">
                       {editingCell?.row === rowIndex && editingCell?.col === colIndex ? (
                         // Mode édition directe
-                        <div className="aspect-square rounded-xl border-4 border-blue-400 bg-blue-50 p-2">
+                        <div className="aspect-square rounded-xl border-4 border-primary bg-accent p-2">
                           <input
                             type="text"
                             value={cellInputValue}
@@ -596,8 +607,8 @@ export function GrilleCroisee() {
                                   key={index}
                                   className={`p-2 cursor-pointer text-xs border-b border-gray-100 last:border-b-0 ${
                                     index === selectedSuggestionIndex 
-                                      ? 'bg-blue-500 text-white' 
-                                      : 'hover:bg-blue-100'
+                                      ? 'bg-primary text-white' 
+                                      : 'hover:bg-accent'
                                   }`}
                                   onMouseDown={(e) => {
                                     e.preventDefault(); // Empêche le onBlur de se déclencher
@@ -617,9 +628,9 @@ export function GrilleCroisee() {
                           className={`aspect-square rounded-xl border-4 cursor-pointer transition-all duration-300 flex items-center justify-center text-center p-2 ${
                             cell.isAnswered
                               ? cell.isCorrect
-                                ? 'bg-green-500 border-green-400 text-white'
-                                : 'bg-red-500 border-red-400 text-white'
-                              : 'bg-white/20 border-white/30 text-white hover:bg-white/30'
+                                ? 'bg-primary border-red-600 text-white'
+                                : 'bg-secondary border-secondary-dark text-text'
+                              : 'bg-white border-accent-light text-text hover:bg-accent'
                           }`}
                           onClick={() => handleCellEdit(rowIndex, colIndex)}
                         >
@@ -649,8 +660,8 @@ export function GrilleCroisee() {
         {/* Leaderboard */}
         {showLeaderboard && (
           <div className="max-w-2xl mx-auto mb-8">
-            <div className="bg-white/20 backdrop-blur rounded-2xl p-6">
-              <h3 className="text-white text-2xl font-bold mb-6 text-center flex items-center justify-center gap-2">
+            <div className="bg-white rounded-2xl p-6 border border-accent-light">
+              <h3 className="text-primary text-2xl font-bold mb-6 text-center flex items-center justify-center gap-2">
                 🏆 Leaderboard
               </h3>
               
@@ -659,37 +670,37 @@ export function GrilleCroisee() {
                   {leaderboard.map((entry, index) => (
                     <div
                       key={index}
-                      className={`flex items-center justify-between p-4 rounded-xl ${
-                        index === 0 ? 'bg-yellow-500/30 border-2 border-yellow-400' :
-                        index === 1 ? 'bg-gray-400/30 border-2 border-gray-300' :
-                        index === 2 ? 'bg-orange-600/30 border-2 border-orange-500' :
-                        'bg-white/10 border border-white/20'
+                      className={`flex items-center justify-between p-4 rounded-xl border ${
+                        index === 0 ? 'bg-secondary/30 border-secondary' :
+                        index === 1 ? 'bg-accent border-accent-light' :
+                        index === 2 ? 'bg-secondary/40 border-secondary-dark' :
+                        'bg-white border-accent-light'
                       }`}
                     >
                       <div className="flex items-center gap-4">
                         <div className={`text-2xl font-bold ${
-                          index === 0 ? 'text-yellow-400' :
-                          index === 1 ? 'text-gray-300' :
-                          index === 2 ? 'text-orange-400' :
-                          'text-white'
+                          index === 0 ? 'text-secondary-dark' :
+                          index === 1 ? 'text-text' :
+                          index === 2 ? 'text-secondary' :
+                          'text-text'
                         }`}>
                           {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
                         </div>
                         <div>
-                          <div className="text-white font-bold">
+                          <div className="text-text font-bold">
                             {entry.player_name || 'Joueur anonyme'}
                           </div>
-                          <div className="text-sm text-blue-200">
+                          <div className="text-sm text-primary">
                             {entry.correct_answers}/{entry.total_answers} bonnes réponses
                             {entry.time_taken && ` • ${entry.time_taken}s`}
                           </div>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-2xl font-bold text-white">
+                        <div className="text-2xl font-bold text-text">
                           {entry.final_score} 🍒
                         </div>
-                        <div className="text-xs text-blue-200">
+                        <div className="text-xs text-primary">
                           {new Date(entry.created_at).toLocaleDateString()}
                         </div>
                       </div>
@@ -697,9 +708,13 @@ export function GrilleCroisee() {
                   ))}
                 </div>
               ) : (
-                <div className="text-center text-blue-200">
-                  <p>Aucun score enregistré pour le moment.</p>
-                  <p className="text-sm mt-2">Soyez le premier à jouer !</p>
+                <div className="text-center">
+                  <div className="inline-block bg-primary text-white px-4 py-2 rounded-lg font-semibold">
+                    Aucun score enregistré pour le moment.
+                  </div>
+                  <div className="mt-3 inline-block bg-secondary text-text px-4 py-2 rounded-lg font-semibold">
+                    Soyez le premier à jouer !
+                  </div>
                 </div>
               )}
             </div>
@@ -713,14 +728,16 @@ export function GrilleCroisee() {
               <h3 className="text-white text-2xl font-bold mb-4">Prêt à jouer ?</h3>
               
               {grilleState.loading ? (
-                <div className="text-blue-200 mb-6">
-                  <div className="animate-spin w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full mx-auto mb-4"></div>
+                <div className="text-primary mb-6">
+                  <div className="animate-spin w-8 h-8 border-4 border-accent-light border-t-primary rounded-full mx-auto mb-4"></div>
                   Chargement de la grille...
                 </div>
               ) : grilleState.config ? (
-                <div className="text-blue-200 mb-6">
-                  <p>Trouve les joueurs qui correspondent aux intersections !</p>
-                  <div className="mt-4 p-4 bg-blue-600/30 rounded-xl">
+                <div className="text-primary mb-6">
+                  <div className="p-3 rounded-lg bg-primary text-white font-medium">
+                    Trouve les joueurs qui correspondent aux intersections !
+                  </div>
+                  <div className="mt-4 p-4 bg-primary/10 rounded-xl">
                     <h4 className="text-white font-bold mb-2">🎯 {grilleState.config.name}</h4>
                     <p className="text-sm">{grilleState.config.description}</p>
                   </div>
@@ -741,7 +758,7 @@ export function GrilleCroisee() {
                   value={playerNameInput}
                   onChange={(e) => setPlayerNameInput(e.target.value)}
                   placeholder="Entrez votre nom pour le leaderboard"
-                  className="w-full p-3 rounded-xl text-center bg-white/30 border-2 border-white/50 text-white placeholder-white/70 focus:outline-none focus:border-blue-400"
+                  className="w-full p-3 rounded-xl text-center bg-white border-2 border-accent-light text-text placeholder:text-text/50 focus:outline-none focus:border-primary"
                 />
               </div>
               
@@ -763,7 +780,7 @@ export function GrilleCroisee() {
                 className={`w-full font-bold py-4 px-8 rounded-xl text-xl transition-all duration-300 transform ${
                   grilleState.loading || !grilleState.config
                     ? 'bg-gray-500 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 hover:scale-105'
+                    : 'bg-primary hover:bg-primary-dark hover:scale-105'
                 } text-white`}
               >
                 {grilleState.loading ? '⏳ Chargement...' : '🚀 Démarrer la Grille !'}
@@ -775,7 +792,7 @@ export function GrilleCroisee() {
         {/* Écran de fin */}
         {gameState.gameOver && (
           <div className="max-w-4xl mx-auto mt-8">
-            <div className="bg-white/20 backdrop-blur rounded-2xl p-8 text-center mb-6">
+            <div className="bg-white rounded-2xl p-8 text-center mb-6 border border-accent-light">
               {(() => {
                 const endMessage = getEndMessage();
                 return (
@@ -809,7 +826,7 @@ export function GrilleCroisee() {
                         setSelectedCell(null);
                         setPlayerNameInput('');
                       }}
-                      className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white font-bold py-4 px-8 rounded-xl text-xl transition-all duration-300"
+                      className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-4 px-8 rounded-xl text-xl transition-all duration-300"
                     >
                       🔄 Rejouer
                     </button>
@@ -819,20 +836,20 @@ export function GrilleCroisee() {
             </div>
 
             {/* Récapitulatif des réponses */}
-            <div className="bg-white/20 backdrop-blur rounded-2xl p-6">
+            <div className="bg-white rounded-2xl p-6 border border-accent-light">
               <h4 className="text-2xl font-bold text-white mb-6">
                 📋 Récapitulatif des réponses
               </h4>
               
               {/* Grille de récapitulatif */}
               <div className="max-w-3xl mx-auto">
-                <div className="bg-white/10 backdrop-blur rounded-2xl p-4">
+                <div className="bg-white rounded-2xl p-4 border border-accent-light">
                   {/* Labels des colonnes */}
                   <div className="grid grid-cols-4 gap-4 mb-4">
                     <div></div>
                     {grilleState.config?.col_labels.slice(0, 3).map((label, index) => (
                       <div key={index} className="text-center">
-                        <div className="bg-blue-600 text-white p-2 rounded-lg font-bold text-xs">
+                        <div className="bg-primary text-white p-2 rounded-lg font-bold text-xs">
                           {getDisplayLabel(label, grilleState.config?.col_type || 'club')}
                         </div>
                       </div>
@@ -844,7 +861,7 @@ export function GrilleCroisee() {
                     <div key={rowIndex} className="grid grid-cols-4 gap-4 mb-3">
                       {/* Label de la ligne */}
                       <div className="flex items-center justify-center">
-                        <div className="bg-green-600 text-white p-2 rounded-lg font-bold text-xs">
+                        <div className="bg-primary text-white p-2 rounded-lg font-bold text-xs">
                           {getDisplayLabel(grilleState.config?.row_labels[rowIndex] || '', grilleState.config?.row_type || 'nationality')}
                         </div>
                       </div>
@@ -855,8 +872,8 @@ export function GrilleCroisee() {
                           key={cell.id}
                           className={`aspect-square rounded-lg border-2 flex flex-col items-center justify-center text-center p-2 ${
                             cell.isCorrect
-                              ? 'bg-green-500 border-green-400 text-white'
-                              : 'bg-red-500 border-red-400 text-white'
+                              ? 'bg-primary border-red-600 text-white'
+                              : 'bg-secondary border-secondary-dark text-text'
                           }`}
                         >
                           <div className="font-bold text-xs mb-1">
@@ -879,27 +896,27 @@ export function GrilleCroisee() {
                 </div>
 
                 {/* Légende */}
-                <div className="mt-6 flex justify-center gap-8 text-white">
+                <div className="mt-6 flex justify-center gap-8 text-text">
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-green-500 rounded"></div>
+                    <div className="w-4 h-4 bg-primary rounded"></div>
                     <span className="text-sm">Bonne réponse</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-red-500 rounded"></div>
+                    <div className="w-4 h-4 bg-secondary rounded"></div>
                     <span className="text-sm">Mauvaise réponse (en jaune: la bonne)</span>
                   </div>
                 </div>
 
                 {/* Statistiques détaillées */}
-                <div className="mt-6 grid grid-cols-2 gap-4 text-white">
-                  <div className="bg-green-600/30 rounded-xl p-4">
-                    <div className="text-2xl font-bold text-green-300">
+                <div className="mt-6 grid grid-cols-2 gap-4 text-text">
+                  <div className="bg-primary/10 rounded-xl p-4">
+                    <div className="text-2xl font-bold text-primary">
                       {gameState.grid.flat().filter(cell => cell.isCorrect).length}
                     </div>
                     <div className="text-sm">Bonnes réponses</div>
                   </div>
-                  <div className="bg-red-600/30 rounded-xl p-4">
-                    <div className="text-2xl font-bold text-red-300">
+                  <div className="bg-secondary/20 rounded-xl p-4">
+                    <div className="text-2xl font-bold text-secondary-dark">
                       {gameState.grid.flat().filter(cell => cell.isAnswered && !cell.isCorrect).length}
                     </div>
                     <div className="text-sm">Mauvaises réponses</div>
@@ -907,8 +924,8 @@ export function GrilleCroisee() {
                 </div>
 
                 {/* Message d'encouragement */}
-                <div className="mt-6 p-4 bg-blue-600/30 rounded-xl">
-                  <p className="text-white text-sm">
+                <div className="mt-6 p-4 bg-primary/10 rounded-xl">
+                  <p className="text-text text-sm">
                     💡 <strong>Astuce :</strong> Les réponses en jaune sont les bonnes ! 
                     Étudie-les pour améliorer ton score la prochaine fois ! 🚀
                   </p>
