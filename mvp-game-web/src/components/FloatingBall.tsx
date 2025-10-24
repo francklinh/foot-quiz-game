@@ -15,6 +15,7 @@ export function FloatingBall({ show = true }: FloatingBallProps) {
     { icon: "⚙️", label: "Réglages", path: "/reglages" },
     { icon: "📊", label: "Stats", path: "/stats" },
     { icon: "🛍️", label: "Shop", path: "/shop" },
+    { icon: "⚔️", label: "Défis", path: "/challenges" },
   ];
 
   return (

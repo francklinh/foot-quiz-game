@@ -9,6 +9,7 @@ import { Profil } from "./pages/Profil";
 import { Jeux } from "./pages/Jeux";
 import { Stats } from "./pages/Stats";
 import { Shop } from "./pages/Shop";
+import { Challenges } from "./pages/Challenges";
 import { Reglages } from "./pages/Reglages";
 import { Regles } from "./pages/Regles";
 import { Top10 } from "./pages/Top10";
@@ -44,6 +45,7 @@ function App() {
                 <Route path="/jeux" element={<Jeux />} />
                 <Route path="/stats" element={<Stats />} />
                 <Route path="/shop" element={<Shop />} />
+                <Route path="/challenges" element={<Challenges />} />
                 <Route path="/reglages" element={<Reglages />} />
                 <Route path="/regles" element={<Regles />} />
                 
