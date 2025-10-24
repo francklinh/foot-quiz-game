@@ -5,7 +5,7 @@ import { supabaseLocalService } from '../services/supabase-local.service';
 // Types pour les questions
 interface Question {
   id: string;
-  game_type_id: string;
+  game_type_id: number; // Corrigé: number au lieu de string
   content: any;
   title?: string;
   description?: string;
@@ -227,7 +227,7 @@ export function AdminQuestionsScreen({ className = '' }: AdminQuestionsScreenPro
       setFormData({
         title: item.title || item.content?.question || '',
         description: item.description || item.content?.description || '',
-        game_type: item.game_type || item.game_type_id || 'TOP10',
+        game_type: item.game_type || (item.game_type_id === 1 ? 'TOP10' : item.game_type_id === 2 ? 'GRILLE' : item.game_type_id === 3 ? 'CLUB' : 'TOP10'),
         difficulty: item.difficulty || 'medium',
         time_limit: item.time_limit || 300,
         max_attempts: item.max_attempts || 3,
