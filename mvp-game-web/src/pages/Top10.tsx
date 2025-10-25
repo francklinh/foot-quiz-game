@@ -13,6 +13,7 @@ type ThemeAnswerRow = {
   answer: string; 
   answer_norm: string;
   ranking?: number;
+  points?: number;
   goals?: number;
   assists?: number;
   value?: number;
@@ -49,16 +50,6 @@ function getCountryFlag(countryCode: string | null | undefined): string {
   return COUNTRY_FLAGS[countryCode.toUpperCase()] || '🏳️';
 }
 
-function getStatisticUnit(gameMode: string): string {
-  switch (gameMode.toLowerCase()) {
-    case 'buteurs':
-      return 'buts';
-    case 'passeurs':
-      return 'passes';
-    default:
-      return 'points';
-  }
-}
 
 export function Top10() {
   // const { slug } = useParams(); // Pas utilisé pour l'instant
@@ -66,10 +57,11 @@ export function Top10() {
   // Challenge hook
   const { challenge, isChallengeMode, completeChallenge } = useChallenge();
 
-  // Sélecteurs de mode et année
-  const [gameMode, setGameMode] = useState<"buteurs" | "passeurs">("buteurs");
-  const [selectedYear, setSelectedYear] = useState<string>("2024");
-  const [league, setLeague] = useState<string>("ligue1");
+  // Sélecteur de question
+  const [selectedQuestion, setSelectedQuestion] = useState<string>("");
+  const [availableQuestions, setAvailableQuestions] = useState<Array<{id: string, title: string}>>([]);
+  const [questionsLoading, setQuestionsLoading] = useState<boolean>(true);
+  const [questionsError, setQuestionsError] = useState<string | null>(null);
 
   // Auth
   const [userId, setUserId] = useState<string | null>(null);
@@ -132,6 +124,110 @@ export function Top10() {
     loadUserCerises();
   }, [userId]);
 
+  // Load available questions
+  useEffect(() => {
+    const loadQuestions = async () => {
+      try {
+        setQuestionsLoading(true);
+        setQuestionsError(null);
+        console.log("Chargement des questions disponibles...");
+        
+        const token = localStorage.getItem('sb-qahbsyolfvujrpblnrvy-auth-token');
+        if (!token) {
+          console.log("Pas de token trouvé");
+          setQuestionsError("Pas de token d'authentification trouvé");
+          setQuestionsLoading(false);
+          return;
+        }
+        
+        const tokenData = JSON.parse(token);
+        if (!tokenData.access_token) {
+          console.log("Pas d'access token trouvé");
+          setQuestionsError("Token d'authentification invalide");
+          setQuestionsLoading(false);
+          return;
+        }
+
+        const headers = {
+          'Authorization': `Bearer ${tokenData.access_token}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhaGJzeW9sZnZ1anJwYmxucnZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk0MjY3NTQsImV4cCI6MjA3NTAwMjc1NH0.R_5UPLhgDXW1IA7oGpUE7VB-1OFq-Tx7CNrOPJZ1XrA',
+          'Content-Type': 'application/json'
+        };
+
+        console.log("Requête vers l'API...");
+        // Récupérer toutes les questions d'abord pour voir la structure
+        const response = await fetch(`https://qahbsyolfvujrpblnrvy.supabase.co/rest/v1/questions?select=*&limit=10`, {
+          method: 'GET',
+          headers
+        });
+
+        console.log("Réponse reçue:", response.status, response.statusText);
+
+        if (response.ok) {
+          const allQuestions = await response.json();
+          console.log("Toutes les questions trouvées:", allQuestions);
+          
+          // Filtrer les questions TOP 10 côté client
+          const top10Questions = allQuestions.filter((q: any) => {
+            // Vérifier game_type_id
+            if (q.game_type_id === 1) return true;
+            
+            // Vérifier game_type string
+            if (q.game_type === 'top10' || q.game_type === 'TOP10') return true;
+            
+            // Vérifier le contenu (en s'assurant que c'est une string)
+            if (q.content && typeof q.content === 'string' && q.content.toLowerCase().includes('top 10')) return true;
+            if (q.title && typeof q.title === 'string' && q.title.toLowerCase().includes('top 10')) return true;
+            
+            return false;
+          });
+          
+          console.log("Questions TOP 10 filtrées:", top10Questions);
+          
+          // Adapter les données selon la structure réelle de la table
+          const adaptedQuestions = top10Questions.map((q: any) => {
+            // Utiliser content.question comme titre principal
+            let title = `Question ${q.id}`; // Fallback par défaut
+            
+            if (q.content && q.content.question && typeof q.content.question === 'string') {
+              title = q.content.question;
+            } else if (q.content && typeof q.content === 'string') {
+              title = q.content;
+            } else if (q.title && typeof q.title === 'string') {
+              title = q.title;
+            } else if (q.name && typeof q.name === 'string') {
+              title = q.name;
+            }
+            
+            return {
+              id: q.id,
+              title: title
+            };
+          });
+          
+          console.log("Questions adaptées:", adaptedQuestions);
+          setAvailableQuestions(adaptedQuestions);
+          if (adaptedQuestions.length > 0 && !selectedQuestion) {
+            setSelectedQuestion(adaptedQuestions[0].id);
+          }
+          setQuestionsLoading(false);
+        } else {
+          console.error("Erreur API:", response.status, response.statusText);
+          const errorText = await response.text();
+          console.error("Détails erreur:", errorText);
+          setQuestionsError(`Erreur API: ${response.status} - ${response.statusText}`);
+          setQuestionsLoading(false);
+        }
+      } catch (error) {
+        console.error('Erreur chargement questions:', error);
+        setQuestionsError(`Erreur de chargement: ${error}`);
+        setQuestionsLoading(false);
+      }
+    };
+
+    loadQuestions();
+  }, []);
+
   // Timer
   useEffect(() => {
     if (loading || gameOver || !gameStarted) return;
@@ -148,9 +244,9 @@ export function Top10() {
     }
   }, [gameOver, allValidAnswers]);
 
-  // Chargement thème basé sur mode + année + ligue
+  // Chargement thème basé sur la question sélectionnée
   useEffect(() => {
-    if (!gameStarted) return;
+    if (!gameStarted || !selectedQuestion) return;
     
     let cancelled = false;
 
@@ -159,59 +255,100 @@ export function Top10() {
         setLoading(true);
         setLoadError(null);
 
-        // Construire les paramètres de recherche
-        const season = `${selectedYear}-${parseInt(selectedYear) + 1}`;
-        const type = gameMode === "buteurs" ? "buteurs" : "passeurs";
-        setTitle(`Top 10 ${gameMode === "buteurs" ? "Buteurs" : "Passeurs"} ${league.toUpperCase()} ${selectedYear}`);
-
-        // 1) Question TOP 10
-        const { data: question, error: questionErr } = await supabase
-          .from("questions")
-          .select("id, content")
-          .eq("game_type_id", 1) // TOP 10
-          .eq("is_active", true)
-          .contains("content", { type, season })
-          .single();
-        
-        if (questionErr || !question) {
-          throw new Error(`Question TOP 10 "${type}" pour la saison "${season}" introuvable.`);
+        // Utiliser l'API directe comme pour les cerises
+        const token = localStorage.getItem('sb-qahbsyolfvujrpblnrvy-auth-token');
+        if (!token) {
+          throw new Error('No authentication token found');
         }
+        
+        const tokenData = JSON.parse(token);
+        if (!tokenData.access_token) {
+          throw new Error('No access token found');
+        }
+
+        const headers = {
+          'Authorization': `Bearer ${tokenData.access_token}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhaGJzeW9sZnZ1anJwYmxucnZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk0MjY3NTQsImV4cCI6MjA3NTAwMjc1NH0.R_5UPLhgDXW1IA7oGpUE7VB-1OFq-Tx7CNrOPJZ1XrA',
+          'Content-Type': 'application/json'
+        };
+
+        // 1) Récupérer la question sélectionnée
+        console.log("Récupération de la question sélectionnée:", selectedQuestion);
+        const questionResponse = await fetch(`https://qahbsyolfvujrpblnrvy.supabase.co/rest/v1/questions?select=*&id=eq.${selectedQuestion}`, {
+          method: 'GET',
+          headers
+        });
+
+        if (!questionResponse.ok) {
+          throw new Error(`HTTP ${questionResponse.status}: ${questionResponse.statusText}`);
+        }
+
+        const questions = await questionResponse.json();
+        if (!questions || questions.length === 0) {
+          throw new Error('Question sélectionnée introuvable');
+        }
+
+        const question = questions[0];
+        setTitle(question.title);
+        console.log("Question trouvée:", question);
         if (cancelled) return;
 
-        // 2) Réponses de la question
-        const { data: rows, error: ansErr } = await supabase
-          .from("question_answers")
-          .select(`
-            ranking,
-            points,
-            players!inner(name, current_club, nationality)
-          `)
-          .eq("question_id", question.id)
-          .order("ranking", { ascending: true });
-        if (ansErr) throw ansErr;
+        // 2) Récupérer les réponses de cette question avec jointure sur players
+        const answersResponse = await fetch(`https://qahbsyolfvujrpblnrvy.supabase.co/rest/v1/question_answers?select=*,players(name,nationality)&question_id=eq.${question.id}&order=ranking.asc`, {
+          method: 'GET',
+          headers
+        });
 
-        // Traitement des réponses avec les données des joueurs
-        const list = (rows ?? []).map((r: any) => ({
-          answer: r.players.name,
-          answer_norm: normalize(r.players.name),
+        if (!answersResponse.ok) {
+          throw new Error(`HTTP ${answersResponse.status}: ${answersResponse.statusText}`);
+        }
+
+        const answersData = await answersResponse.json();
+        if (!answersData || answersData.length === 0) {
+          throw new Error('Aucune réponse trouvée pour cette question');
+        }
+
+        console.log("Réponses trouvées:", answersData.length);
+        console.log("Structure des réponses:", answersData[0]); // Voir la structure de la première réponse
+        console.log("Propriétés de la première réponse:", Object.keys(answersData[0])); // Voir les clés disponibles
+        console.log("Toutes les réponses:", answersData); // Voir toutes les réponses
+
+        // Traitement des réponses
+        const list = answersData.map((r: any) => ({
+          answer: r.players?.name || 'Joueur inconnu',
+          answer_norm: r.players?.name?.toLowerCase() || 'joueur inconnu',
           ranking: r.ranking,
-          points: r.points,
+          points: r.points || 0,
           players: {
-            nationality: r.players.nationality
+            nationality: r.players?.nationality || 'Unknown'
           }
         })) as ThemeAnswerRow[];
         
+        console.log("Réponses traitées:", list); // Voir les réponses après traitement
+        console.log("Première réponse traitée:", list[0]); // Voir la première réponse traitée
+        console.log("allValidAnswers sera défini avec:", list.length, "réponses");
         setValidSet(new Set(list.map((r) => r.answer_norm)));
         setAllValidAnswers(list); // Stocker toutes les réponses pour le récapitulatif
 
-        // 3) Suggestions = TOUS les joueurs de la base (pas seulement les réponses valides)
-        const { data: allPlayers, error: playersErr } = await supabase
-          .from("players")
-          .select("name")
-          .order("name");
-        
-        if (playersErr) throw playersErr;
-        setSuggestions((allPlayers ?? []).map((p) => p.name));
+        // 3) Suggestions = tous les joueurs de la base via API directe
+        try {
+          const playersResponse = await fetch(`https://qahbsyolfvujrpblnrvy.supabase.co/rest/v1/players?select=name&order=name&limit=1000`, {
+            method: 'GET',
+            headers
+          });
+
+          if (playersResponse.ok) {
+            const playersData = await playersResponse.json();
+            setSuggestions((playersData ?? []).map((p: any) => p.name));
+          } else {
+            // En cas d'erreur, utiliser les réponses de la question comme suggestions
+            setSuggestions(list.map(p => p.answer));
+          }
+        } catch (error) {
+          console.error("Erreur recherche joueurs:", error);
+          // En cas d'erreur, utiliser les réponses de la question comme suggestions
+          setSuggestions(list.map(p => p.answer));
+        }
 
         // 4) Reset UI
         setTimeLeft(60);
@@ -237,7 +374,7 @@ export function Top10() {
     return () => {
       cancelled = true;
     };
-  }, [gameStarted, gameMode, selectedYear, league, userId]);
+  }, [gameStarted, selectedQuestion, userId]);
 
   // Scoring
   const BASE_GOOD = 15;
@@ -339,7 +476,7 @@ export function Top10() {
         console.error("endGame/leaderboard failed:", e);
       }
     })();
-  }, [gameOver, gameId, score, answers.length, gameMode, league, selectedYear]);
+  }, [gameOver, gameId, score, answers.length, selectedQuestion]);
 
   // Handle cerises rewards and challenge completion at game end
   useEffect(() => {
@@ -375,7 +512,7 @@ export function Top10() {
     };
     
     handleGameEnd();
-  }, [gameOver, userId, gameStarted, score, answers.length, gameMode, isChallengeMode, completeChallenge, timeLeft]);
+  }, [gameOver, userId, gameStarted, score, answers.length, selectedQuestion, isChallengeMode, completeChallenge, timeLeft]);
 
   // Couleur timer (utilisée dans le JSX)
   // const timeColor = () => {
@@ -453,62 +590,42 @@ export function Top10() {
             )}
           </div>
         
-        {/* Sélecteurs de configuration */}
+        {/* Sélecteur de question */}
         <div className="bg-white rounded-2xl shadow-xl p-6 space-y-4 border border-accent-light">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Mode de jeu */}
-            <div>
-              <label className="block text-sm font-medium text-text mb-2">🎯 Mode de jeu</label>
+          <div>
+            <label className="block text-sm font-medium text-text mb-2">🎯 Choisir une question</label>
+            
+            {questionsLoading && (
+              <div className="w-full p-3 rounded-xl border-2 border-primary/20 bg-accent text-center">
+                <span className="text-primary font-medium">⏳ Chargement des questions...</span>
+              </div>
+            )}
+            
+            {questionsError && (
+              <div className="w-full p-3 rounded-xl border-2 border-red-200 bg-red-50 text-center">
+                <span className="text-red-600 font-medium">❌ {questionsError}</span>
+              </div>
+            )}
+            
+            {!questionsLoading && !questionsError && (
               <select
-                value={gameMode}
-                onChange={(e) => setGameMode(e.target.value as "buteurs" | "passeurs")}
+                value={selectedQuestion}
+                onChange={(e) => setSelectedQuestion(e.target.value)}
                 disabled={gameStarted && !gameOver}
                 className="w-full p-3 rounded-xl border-2 border-primary/20 bg-accent font-medium text-text focus:outline-none focus:border-primary transition-colors duration-200 disabled:opacity-50"
               >
-                <option value="buteurs">⚽ Buteurs</option>
-                <option value="passeurs">🎯 Passeurs</option>
+                <option value="">Sélectionnez une question...</option>
+                {availableQuestions.map((question) => (
+                  <option key={question.id} value={question.id}>
+                    {question.title}
+                  </option>
+                ))}
               </select>
-            </div>
-
-            {/* Ligue */}
-            <div>
-              <label className="block text-sm font-medium text-text mb-2">🏆 Ligue</label>
-              <select
-                value={league}
-                onChange={(e) => setLeague(e.target.value)}
-                disabled={gameStarted && !gameOver}
-                className="w-full p-3 rounded-xl border-2 border-primary/20 bg-accent font-medium text-text focus:outline-none focus:border-primary transition-colors duration-200 disabled:opacity-50"
-              >
-                <option value="ligue1">🇫🇷 Ligue 1</option>
-                <option value="epl">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League</option>
-                <option value="laliga">🇪🇸 LaLiga</option>
-                <option value="seriea">🇮🇹 Serie A</option>
-                <option value="bundesliga">🇩🇪 Bundesliga</option>
-                <option value="ucl">⭐ Champions League</option>
-              </select>
-            </div>
-
-            {/* Année */}
-            <div>
-              <label className="block text-sm font-bold text-orange-600 mb-2">📅 Année</label>
-              <select
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(e.target.value)}
-                disabled={gameStarted && !gameOver}
-                className="w-full border-2 border-orange-300 rounded-xl px-3 py-2 bg-white font-semibold text-gray-700 disabled:bg-gray-100 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all"
-              >
-                <option value="2025">2024-2025</option>
-                <option value="2024">2023-2024</option>
-                <option value="2023">2022-2023</option>
-                <option value="2022">2021-2022</option>
-                <option value="2021">2020-2021</option>
-                <option value="2020">2019-2020</option>
-              </select>
-            </div>
+            )}
           </div>
 
           {/* Bouton Lancer la partie */}
-          {!gameStarted && (
+          {!gameStarted && selectedQuestion && !questionsLoading && !questionsError && (
             <button
               onClick={() => setGameStarted(true)}
               className="w-full px-6 py-4 rounded-2xl bg-primary hover:bg-primary-dark text-white text-xl font-black transform hover:scale-105 transition-all shadow-xl"
@@ -517,9 +634,15 @@ export function Top10() {
             </button>
           )}
 
+          {!selectedQuestion && !questionsLoading && !questionsError && (
+            <p className="text-sm text-center text-gray-500">
+              Veuillez sélectionner une question pour commencer
+            </p>
+          )}
+
           {gameStarted && !gameOver && (
             <p className="text-xs text-center text-primary font-semibold">
-              🔒 Sélecteurs verrouillés pendant la partie
+              🔒 Question verrouillée pendant la partie
             </p>
           )}
         </div>
@@ -612,8 +735,8 @@ export function Top10() {
               {allValidAnswers.slice(0, 5).map((answer, index) => {
                 const unblurred = isAnswerUnblurred(answer.answer_norm);
                 const flag = getCountryFlag(answer.players?.nationality);
-                const statValue = gameMode === 'buteurs' ? answer.goals : answer.assists;
-                const statUnit = getStatisticUnit(gameMode);
+                const statValue = answer.points || answer.goals || answer.assists || 0;
+                const statUnit = 'points';
                 
                 return (
                   <div
@@ -653,8 +776,8 @@ export function Top10() {
               {allValidAnswers.slice(5, 10).map((answer, index) => {
                 const unblurred = isAnswerUnblurred(answer.answer_norm);
                 const flag = getCountryFlag(answer.players?.nationality);
-                const statValue = gameMode === 'buteurs' ? answer.goals : answer.assists;
-                const statUnit = getStatisticUnit(gameMode);
+                const statValue = answer.points || answer.goals || answer.assists || 0;
+                const statUnit = 'points';
                 
                 return (
                   <div
@@ -735,8 +858,8 @@ export function Top10() {
                   const found = isAnswerFound(answer.answer_norm);
                   const unblurred = isAnswerUnblurred(answer.answer_norm);
                   const flag = getCountryFlag(answer.players?.nationality);
-                  const statValue = gameMode === 'buteurs' ? answer.goals : answer.assists;
-                  const statUnit = getStatisticUnit(gameMode);
+                  const statValue = answer.points || answer.goals || answer.assists || 0;
+                  const statUnit = 'points';
                   
                   return (
                     <div
@@ -781,8 +904,8 @@ export function Top10() {
                   const found = isAnswerFound(answer.answer_norm);
                   const unblurred = isAnswerUnblurred(answer.answer_norm);
                   const flag = getCountryFlag(answer.players?.nationality);
-                  const statValue = gameMode === 'buteurs' ? answer.goals : answer.assists;
-                  const statUnit = getStatisticUnit(gameMode);
+                  const statValue = answer.points || answer.goals || answer.assists || 0;
+                  const statUnit = 'points';
                   
                   return (
                     <div
