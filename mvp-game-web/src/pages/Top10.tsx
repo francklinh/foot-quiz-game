@@ -75,7 +75,27 @@ export function Top10() {
   // Auth
   const [userId, setUserId] = useState<string | null>(null);
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setUserId(data.session?.user?.id ?? null));
+    // Essayer d'abord l'API Supabase
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session?.user?.id) {
+        setUserId(data.session.user.id);
+      } else {
+        // Fallback vers localStorage
+        const storedToken = localStorage.getItem('sb-qahbsyolfvujrpblnrvy-auth-token');
+        if (storedToken) {
+          try {
+            const tokenData = JSON.parse(storedToken);
+            if (tokenData.user?.id) {
+              setUserId(tokenData.user.id);
+              console.log("🔍 userId récupéré depuis localStorage:", tokenData.user.id);
+            }
+          } catch (err) {
+            console.error("Erreur parsing localStorage pour userId:", err);
+          }
+        }
+      }
+    });
+    
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       setUserId(session?.user?.id ?? null);
     });
@@ -513,13 +533,22 @@ export function Top10() {
           console.log(`🎯 Calcul des cerises: score=${score}, baseReward=${baseReward}, bonusReward=${bonusReward}, totalReward=${totalReward}`);
           console.log(`🍒 Ajout de ${totalReward} cerises pour l'utilisateur ${userId}`);
           
-          await cerisesService.addCerises(userId, totalReward);
-          setCerisesEarned(totalReward);
+          if (!userId) {
+            console.error("❌ userId non défini, impossible de sauvegarder les cerises");
+            return;
+          }
+          
+          try {
+            await cerisesService.addCerises(userId, totalReward);
+            setCerisesEarned(totalReward);
 
-          // Update user cerises display
-          const newBalance = await cerisesService.getUserCerises(userId);
-          console.log(`💰 Nouveau solde cerises: ${newBalance}`);
-          setUserCerises(newBalance);
+            // Update user cerises display
+            const newBalance = await cerisesService.getUserCerises(userId);
+            console.log(`💰 Nouveau solde cerises: ${newBalance}`);
+            setUserCerises(newBalance);
+          } catch (cerisesError) {
+            console.error("❌ Erreur sauvegarde cerises:", cerisesError);
+          }
         }
 
         // Complete challenge if in challenge mode

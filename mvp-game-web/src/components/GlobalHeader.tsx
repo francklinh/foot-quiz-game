@@ -11,9 +11,35 @@ type GlobalHeaderProps = {
 export function GlobalHeader({ showProfile = true }: GlobalHeaderProps) {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  const [clafoutis, setClafoutis] = useState(0);
+  const [cerises, setCerises] = useState(0);
   const [currentTime, setCurrentTime] = useState(new Date());
   const navigate = useNavigate();
+
+  // Fonction pour récupérer les cerises depuis Supabase
+  const fetchUserCerises = async (userId: string) => {
+    try {
+      const headers = {
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhaGJzeW9sZnZ1anJwYmxucnZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk0MjY3NTQsImV4cCI6MjA3NTAwMjc1NH0.R_5UPLhgDXW1IA7oGpUE7VB-1OFq-Tx7CNrOPJZ1XrA',
+        'Content-Type': 'application/json'
+      };
+
+      const response = await fetch(`https://qahbsyolfvujrpblnrvy.supabase.co/rest/v1/users?select=cerises_balance&id=eq.${userId}`, {
+        method: 'GET',
+        headers
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const cerisesBalance = data?.[0]?.cerises_balance || 0;
+        setCerises(cerisesBalance);
+        console.log('🍒 Cerises récupérées depuis Supabase:', cerisesBalance);
+      } else {
+        console.error('Erreur récupération cerises:', response.status);
+      }
+    } catch (error) {
+      console.error('Erreur fetchUserCerises:', error);
+    }
+  };
 
   // Mise à jour de l'heure
   useEffect(() => {
@@ -29,7 +55,13 @@ export function GlobalHeader({ showProfile = true }: GlobalHeaderProps) {
     const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('🔄 GlobalHeader - Changement d\'état d\'authentification:', event, session?.user?.email);
       setUserEmail(session?.user?.email ?? null);
-      setUserId(session?.user?.id ?? null);
+      const newUserId = session?.user?.id ?? null;
+      setUserId(newUserId);
+      
+      // Récupérer les cerises quand l'utilisateur est identifié
+      if (newUserId) {
+        fetchUserCerises(newUserId);
+      }
     });
 
     // Vérifier la session au chargement immédiatement
@@ -85,7 +117,13 @@ export function GlobalHeader({ showProfile = true }: GlobalHeaderProps) {
             if (response.ok) {
               const userData = await response.json();
               setUserEmail(userData.email ?? null);
-              setUserId(userData.id ?? null);
+              const newUserId = userData.id ?? null;
+              setUserId(newUserId);
+              
+              // Récupérer les cerises quand l'utilisateur est identifié
+              if (newUserId) {
+                fetchUserCerises(newUserId);
+              }
             }
           }
         }
@@ -100,8 +138,7 @@ export function GlobalHeader({ showProfile = true }: GlobalHeaderProps) {
     setTimeout(checkSession, 1000);
     setTimeout(checkSession, 2000);
 
-    // Simuler la récupération des clafoutis (à remplacer par une vraie API)
-    setClafoutis(Math.floor(Math.random() * 1000) + 100);
+    // Les cerises sont récupérées via fetchUserCerises() quand l'utilisateur est identifié
 
     return () => {
       subscription?.subscription.unsubscribe();
@@ -147,8 +184,8 @@ export function GlobalHeader({ showProfile = true }: GlobalHeaderProps) {
           {/* Gauche - Compteur Clafoutis et Admin */}
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <span className="text-2xl">🍕</span>
-              <span className="text-lg font-bold">{clafoutis}</span>
+              <span className="text-2xl">🍒</span>
+              <span className="text-lg font-bold">{cerises}</span>
             </div>
             <AdminIndicator />
           </div>
