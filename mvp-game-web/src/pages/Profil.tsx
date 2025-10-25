@@ -31,37 +31,65 @@ export function Profil() {
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
-    // Charger l'utilisateur depuis Supabase
+    // Charger l'utilisateur avec la même logique que GlobalHeader
     const loadUser = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) {
-        console.error('❌ Profil - Erreur session:', error);
-        return;
+      // Vérifier d'abord localStorage
+      const storedToken = localStorage.getItem('sb-qahbsyolfvujrpblnrvy-auth-token');
+      
+      if (storedToken) {
+        try {
+          const tokenData = JSON.parse(storedToken);
+          
+          // Essayer différentes structures possibles
+          let user = null;
+          if (tokenData.currentSession?.user) {
+            user = tokenData.currentSession.user;
+          } else if (tokenData.user) {
+            user = tokenData.user;
+          } else if (tokenData.access_token) {
+            // Si c'est juste un token d'accès, essayer de décoder le JWT
+            try {
+              const payload = JSON.parse(atob(tokenData.access_token.split('.')[1]));
+              user = { email: payload.email, id: payload.sub };
+            } catch (jwtErr) {
+              console.error('❌ Profil - Erreur décodage JWT:', jwtErr);
+            }
+          }
+          
+          if (user) {
+            setUser(user);
+            return;
+          }
+        } catch (parseErr) {
+          console.error('❌ Profil - Erreur parsing token:', parseErr);
+        }
       }
       
-      if (session?.user) {
-        setUser(session.user);
-        console.log('✅ Profil - Utilisateur chargé:', session.user.email);
-      } else {
-        console.log('❌ Profil - Aucun utilisateur connecté');
+      // Fallback: utiliser l'API directe
+      try {
+        const storedToken = localStorage.getItem('sb-qahbsyolfvujrpblnrvy-auth-token');
+        if (storedToken) {
+          const tokenData = JSON.parse(storedToken);
+          if (tokenData.access_token) {
+            const response = await fetch('https://qahbsyolfvujrpblnrvy.supabase.co/auth/v1/user', {
+              headers: {
+                'Authorization': `Bearer ${tokenData.access_token}`,
+                'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhaGJzeW9sZnZ1anJwYmxucnZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk0MjY3NTQsImV4cCI6MjA3NTAwMjc1NH0.R_5UPLhgDXW1IA7oGpUE7VB-1OFq-Tx7CNrOPJZ1XrA'
+              }
+            });
+
+            if (response.ok) {
+              const userData = await response.json();
+              setUser(userData);
+            }
+          }
+        }
+      } catch (apiErr) {
+        // Erreur silencieuse
       }
     };
 
     loadUser();
-
-    // Écouter les changements d'état d'authentification
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('🔄 Profil - Changement d\'état:', event, session?.user?.email);
-      if (session?.user) {
-        setUser(session.user);
-      } else {
-        setUser(null);
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
   }, []);
 
   const handleInputChange = (field: string, value: string) => {
@@ -121,6 +149,7 @@ export function Profil() {
     <div className="min-h-screen bg-background">
       
       <div className="max-w-2xl mx-auto px-4 py-8">
+        
         {user ? (
           <div className="bg-white rounded-2xl shadow-xl p-8">
             {/* Photo de profil */}

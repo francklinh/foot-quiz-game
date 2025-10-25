@@ -1,9 +1,8 @@
-// Page d'inscription simplifiée avec Supabase Auth
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
-export function SimpleRegister() {
+export function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -22,20 +21,19 @@ export function SimpleRegister() {
   ];
 
   useEffect(() => {
-    // Vérifier si l'utilisateur est déjà connecté
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        console.log('✅ Utilisateur déjà connecté, redirection vers l\'accueil');
+        console.log('🔄 Register - Session existante trouvée:', session.user.email);
         navigate('/home');
       }
     };
     checkSession();
 
-    // Écouter les changements d'état d'authentification
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('🔄 Register - Changement d\'état d\'authentification:', event, session?.user?.email);
       if (session?.user) {
-        console.log('✅ Utilisateur connecté, redirection vers l\'accueil');
+        console.log('✅ Register - Utilisateur connecté, redirection vers /home');
         navigate('/home');
       }
     });
@@ -49,69 +47,35 @@ export function SimpleRegister() {
     setError(null);
     setSuccess(null);
 
-    // Validation côté client
-    if (password !== confirmPassword) {
-      setError('Les mots de passe ne correspondent pas');
-      setLoading(false);
-      return;
-    }
-
-    if (password.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caractères');
-      setLoading(false);
-      return;
-    }
-
     try {
+      console.log('🔄 Tentative d\'inscription pour:', email);
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
             pseudo: pseudo || email.split('@')[0],
-            country: country || 'France'
-          }
+            country: country,
+          },
+          emailRedirectTo: 'http://localhost:3000/home'
         }
       });
 
       if (error) {
+        console.error('❌ Erreur inscription:', error);
         setError(error.message);
       } else {
-        console.log('✅ Inscription réussie:', data);
+        console.log('✅ Utilisateur créé:', data.user?.id);
+        setSuccess('Compte créé avec succès ! Un email de confirmation a été envoyé. Vérifiez votre boîte de réception et cliquez sur le lien pour activer votre compte.');
         
-        if (data.session) {
-          // Session créée automatiquement
-          setSuccess('Compte créé avec succès ! Connexion automatique...');
-          setTimeout(() => navigate('/home'), 1500);
-        } else {
-          // Pas de session créée, essayer de se connecter automatiquement
-          setSuccess('Compte créé avec succès ! Connexion en cours...');
-          
-          // Attendre un peu pour que l'utilisateur soit créé
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          try {
-            console.log('🔄 Tentative de connexion automatique...');
-            const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
-              email,
-              password
-            });
-            
-            if (loginError) {
-              console.error('❌ Erreur connexion automatique:', loginError);
-              setError(`Compte créé mais connexion échouée: ${loginError.message}. Veuillez vous connecter manuellement.`);
-            } else {
-              console.log('✅ Connexion automatique réussie:', loginData.user?.email);
-              setSuccess('Compte créé et connexion réussie ! Redirection...');
-              setTimeout(() => navigate('/home'), 1500);
-            }
-          } catch (loginErr: any) {
-            console.error('❌ Erreur connexion automatique:', loginErr);
-            setError(`Compte créé mais connexion échouée: ${loginErr.message}. Veuillez vous connecter manuellement.`);
-          }
-        }
+        // Rediriger vers login après inscription
+        setTimeout(() => {
+          navigate('/login');
+        }, 2000);
       }
     } catch (err: any) {
+      console.error('💥 Erreur lors de l\'inscription:', err);
       setError(err.message || 'Erreur lors de la création du compte');
     } finally {
       setLoading(false);
@@ -151,7 +115,6 @@ export function SimpleRegister() {
               id="country"
               value={country}
               onChange={(e) => setCountry(e.target.value)}
-              disabled={loading}
               className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
             >
               {PAYS_OPTIONS.map((pays) => (
@@ -205,6 +168,7 @@ export function SimpleRegister() {
           </Link>
         </div>
       </div>
+      
     </div>
   );
 }

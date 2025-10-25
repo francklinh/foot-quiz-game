@@ -8,10 +8,6 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const customFetch = (url: string | URL | Request, options?: RequestInit) => {
   const urlString = url.toString();
   const correctedUrl = urlString.replace('.supabase.com', '.supabase.co');
-  
-  console.log('🔄 URL originale:', urlString);
-  console.log('🔄 URL corrigée:', correctedUrl);
-  
   return fetch(correctedUrl, options);
 };
 
@@ -20,7 +16,18 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    flowType: 'implicit'
+    flowType: 'pkce', // Changement de 'implicit' vers 'pkce'
+    storage: {
+      getItem: (key: string) => {
+        return localStorage.getItem(key);
+      },
+      setItem: (key: string, value: string) => {
+        localStorage.setItem(key, value);
+      },
+      removeItem: (key: string) => {
+        localStorage.removeItem(key);
+      }
+    }
   },
   global: {
     headers: {

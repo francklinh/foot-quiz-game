@@ -1,9 +1,8 @@
-// Page d'inscription simplifiée avec Supabase Auth
-import React, { useState, useEffect } from 'react';
+// Page de test d'inscription avec fetch direct
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
 
-export function SimpleRegister() {
+export function TestRegister() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -20,28 +19,6 @@ export function SimpleRegister() {
     "Norvège", "Égypte", "Corée du Sud", "Nigeria", "Canada", "Maroc",
     "Sénégal", "Algérie", "Tunisie", "Côte d'Ivoire", "Ghana", "Cameroun"
   ];
-
-  useEffect(() => {
-    // Vérifier si l'utilisateur est déjà connecté
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        console.log('✅ Utilisateur déjà connecté, redirection vers l\'accueil');
-        navigate('/home');
-      }
-    };
-    checkSession();
-
-    // Écouter les changements d'état d'authentification
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        console.log('✅ Utilisateur connecté, redirection vers l\'accueil');
-        navigate('/home');
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,56 +40,67 @@ export function SimpleRegister() {
     }
 
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            pseudo: pseudo || email.split('@')[0],
-            country: country || 'France'
+      console.log('🔄 Test d\'inscription avec fetch direct...');
+      
+      const SUPABASE_URL = 'https://qahbsyolfvujrpblnrvy.supabase.co';
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhaGJzeW9sZnZ1anJwYmxucnZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk0MjY3NTQsImV4cCI6MjA3NTAwMjc1NH0.R_5UPLhgDXW1IA7oGpUE7VB-1OFq-Tx7CNrOPJZ1XrA';
+      
+      const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          options: {
+            data: {
+              pseudo: pseudo || email.split('@')[0],
+              country: country || 'France'
+            }
           }
-        }
+        })
       });
 
-      if (error) {
-        setError(error.message);
-      } else {
+      console.log('📊 Réponse inscription - Status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
         console.log('✅ Inscription réussie:', data);
         
-        if (data.session) {
-          // Session créée automatiquement
-          setSuccess('Compte créé avec succès ! Connexion automatique...');
-          setTimeout(() => navigate('/home'), 1500);
-        } else {
-          // Pas de session créée, essayer de se connecter automatiquement
-          setSuccess('Compte créé avec succès ! Connexion en cours...');
+        // Si on a un token, créer une session
+        if (data.access_token) {
+          console.log('🔄 Création de session avec le token...');
           
-          // Attendre un peu pour que l'utilisateur soit créé
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          // Importer supabase pour créer la session
+          const { supabase } = await import('../lib/supabase');
           
-          try {
-            console.log('🔄 Tentative de connexion automatique...');
-            const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
-              email,
-              password
-            });
-            
-            if (loginError) {
-              console.error('❌ Erreur connexion automatique:', loginError);
-              setError(`Compte créé mais connexion échouée: ${loginError.message}. Veuillez vous connecter manuellement.`);
-            } else {
-              console.log('✅ Connexion automatique réussie:', loginData.user?.email);
-              setSuccess('Compte créé et connexion réussie ! Redirection...');
-              setTimeout(() => navigate('/home'), 1500);
-            }
-          } catch (loginErr: any) {
-            console.error('❌ Erreur connexion automatique:', loginErr);
-            setError(`Compte créé mais connexion échouée: ${loginErr.message}. Veuillez vous connecter manuellement.`);
+          const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+            access_token: data.access_token,
+            refresh_token: data.refresh_token
+          });
+          
+          if (sessionError) {
+            console.error('❌ Erreur création session:', sessionError);
+            setError('Compte créé mais erreur de session: ' + sessionError.message);
+          } else {
+            console.log('✅ Session créée:', sessionData);
+            setSuccess('Compte créé et session établie ! Redirection...');
+            setTimeout(() => navigate('/home'), 1000);
           }
+        } else {
+          setSuccess('Compte créé avec succès ! Veuillez vous connecter.');
         }
+      } else {
+        const errorData = await response.json();
+        console.error('❌ Erreur inscription:', errorData);
+        setError(errorData.msg || `Erreur HTTP: ${response.status}`);
       }
     } catch (err: any) {
-      setError(err.message || 'Erreur lors de la création du compte');
+      console.error('💥 Erreur lors de l\'inscription:', err);
+      setError(err.message || 'Erreur de connexion');
     } finally {
       setLoading(false);
     }
@@ -121,7 +109,7 @@ export function SimpleRegister() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400 flex items-center justify-center p-4">
       <div className="bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-8 w-full max-w-md">
-        <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">Inscription</h2>
+        <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">Test Inscription</h2>
         <form onSubmit={handleRegister} className="space-y-4">
           <div>
             <label htmlFor="pseudo" className="block text-sm font-medium text-gray-700">Pseudo</label>
@@ -190,13 +178,16 @@ export function SimpleRegister() {
             className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
             disabled={loading}
           >
-            {loading ? 'Chargement...' : 'S\'inscrire'}
+            {loading ? 'Chargement...' : 'S\'inscrire (Test)'}
           </button>
         </form>
         <p className="mt-6 text-center text-sm text-gray-600">
-          Déjà un compte ?{' '}
-          <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
-            Se connecter
+          <Link to="/test-login" className="font-medium text-indigo-600 hover:text-indigo-500">
+            Test de connexion
+          </Link>
+          {' | '}
+          <Link to="/register" className="font-medium text-indigo-600 hover:text-indigo-500">
+            Inscription normale
           </Link>
         </p>
         <div className="mt-6 text-center">

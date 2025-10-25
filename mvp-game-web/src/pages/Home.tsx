@@ -44,6 +44,7 @@ export function Home() {
 
   return (
     <div className="min-h-screen bg-pattern">
+      
       {/* Motifs ballon en filigrane avec meilleur contraste */}
       <div className="absolute inset-0 opacity-10 z-0">
         <div className="absolute top-10 left-10 w-20 h-20 bg-primary rounded-full"></div>
