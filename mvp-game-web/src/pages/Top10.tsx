@@ -7,6 +7,15 @@ import { CerisesService } from "../services/cerises.service";
 import { ChallengesService } from "../services/challenges.service";
 import { useChallenge } from "../hooks/useChallenge";
 
+// Fonction utilitaire pour obtenir l'utilisateur connecté via API
+const getCurrentUser = async () => {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) {
+    throw new Error('User not authenticated');
+  }
+  return user;
+};
+
 // --- Types DB ---
 type ThemeRow = { id: string; slug: string; title: string };
 type ThemeAnswerRow = { 
@@ -132,39 +141,60 @@ export function Top10() {
         setQuestionsError(null);
         console.log("Chargement des questions disponibles...");
         
-        const token = localStorage.getItem('sb-qahbsyolfvujrpblnrvy-auth-token');
-        if (!token) {
-          console.log("Pas de token trouvé");
-          setQuestionsError("Pas de token d'authentification trouvé");
+        console.log("Requête vers l'API...");
+        console.log("🔍 Étape 1: Vérification auth...");
+        
+        // Vérifier l'état de l'authentification - utiliser localStorage directement
+        console.log("🔍 Étape 2: Vérification auth via localStorage...");
+        
+        let user = null;
+        const storedToken = localStorage.getItem('sb-qahbsyolfvujrpblnrvy-auth-token');
+        if (storedToken) {
+          try {
+            const tokenData = JSON.parse(storedToken);
+            console.log("🔍 Token data:", tokenData);
+            
+            if (tokenData.currentSession?.user) {
+              user = tokenData.currentSession.user;
+              console.log("🔍 Utilisateur trouvé dans localStorage:", user.id);
+            } else if (tokenData.user) {
+              user = tokenData.user;
+              console.log("🔍 Utilisateur trouvé dans localStorage (format alternatif):", user.id);
+            }
+          } catch (parseErr) {
+            console.error("Erreur parsing localStorage:", parseErr);
+          }
+        }
+        
+        if (!user) {
+          console.error("Utilisateur non trouvé dans localStorage");
+          setQuestionsError("Vous devez être connecté pour accéder aux questions");
           setQuestionsLoading(false);
           return;
         }
         
-        const tokenData = JSON.parse(token);
-        if (!tokenData.access_token) {
-          console.log("Pas d'access token trouvé");
-          setQuestionsError("Token d'authentification invalide");
-          setQuestionsLoading(false);
-          return;
-        }
-
+        console.log("🔍 Étape 4: Appel API questions via REST (mode anonyme)...");
+        
+        // Utiliser l'API REST en mode anonyme (sans authentification)
         const headers = {
-          'Authorization': `Bearer ${tokenData.access_token}`,
           'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhaGJzeW9sZnZ1anJwYmxucnZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk0MjY3NTQsImV4cCI6MjA3NTAwMjc1NH0.R_5UPLhgDXW1IA7oGpUE7VB-1OFq-Tx7CNrOPJZ1XrA',
           'Content-Type': 'application/json'
         };
 
-        console.log("Requête vers l'API...");
-        // Récupérer toutes les questions d'abord pour voir la structure
         const response = await fetch(`https://qahbsyolfvujrpblnrvy.supabase.co/rest/v1/questions?select=*&limit=10`, {
           method: 'GET',
           headers
         });
 
-        console.log("Réponse reçue:", response.status, response.statusText);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
 
-        if (response.ok) {
-          const allQuestions = await response.json();
+        const allQuestions = await response.json();
+          
+        console.log("🔍 Étape 5: Résultat API questions:", { allQuestions: allQuestions?.length });
+
+        if (allQuestions) {
           console.log("Toutes les questions trouvées:", allQuestions);
           
           // Filtrer les questions TOP 10 côté client
@@ -211,16 +241,15 @@ export function Top10() {
             setSelectedQuestion(adaptedQuestions[0].id);
           }
           setQuestionsLoading(false);
-        } else {
-          console.error("Erreur API:", response.status, response.statusText);
-          const errorText = await response.text();
-          console.error("Détails erreur:", errorText);
-          setQuestionsError(`Erreur API: ${response.status} - ${response.statusText}`);
-          setQuestionsLoading(false);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Erreur chargement questions:', error);
-        setQuestionsError(`Erreur de chargement: ${error}`);
+        console.error('Détails de l\'erreur:', error);
+        if (error.message.includes('Session expired') || error.message.includes('not authenticated')) {
+          setQuestionsError("Session expirée, veuillez vous reconnecter");
+        } else {
+          setQuestionsError(`Erreur de chargement: ${error.message}`);
+        }
         setQuestionsLoading(false);
       }
     };
@@ -255,25 +284,15 @@ export function Top10() {
         setLoading(true);
         setLoadError(null);
 
-        // Utiliser l'API directe comme pour les cerises
-        const token = localStorage.getItem('sb-qahbsyolfvujrpblnrvy-auth-token');
-        if (!token) {
-          throw new Error('No authentication token found');
-        }
+        // Utiliser l'API REST en mode anonyme
+        console.log("Récupération de la question sélectionnée:", selectedQuestion);
         
-        const tokenData = JSON.parse(token);
-        if (!tokenData.access_token) {
-          throw new Error('No access token found');
-        }
-
         const headers = {
-          'Authorization': `Bearer ${tokenData.access_token}`,
           'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhaGJzeW9sZnZ1anJwYmxucnZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk0MjY3NTQsImV4cCI6MjA3NTAwMjc1NH0.R_5UPLhgDXW1IA7oGpUE7VB-1OFq-Tx7CNrOPJZ1XrA',
           'Content-Type': 'application/json'
         };
-
+        
         // 1) Récupérer la question sélectionnée
-        console.log("Récupération de la question sélectionnée:", selectedQuestion);
         const questionResponse = await fetch(`https://qahbsyolfvujrpblnrvy.supabase.co/rest/v1/questions?select=*&id=eq.${selectedQuestion}`, {
           method: 'GET',
           headers
@@ -330,7 +349,7 @@ export function Top10() {
         setValidSet(new Set(list.map((r) => r.answer_norm)));
         setAllValidAnswers(list); // Stocker toutes les réponses pour le récapitulatif
 
-        // 3) Suggestions = tous les joueurs de la base via API directe
+        // 3) Suggestions = tous les joueurs de la base via API REST
         try {
           const playersResponse = await fetch(`https://qahbsyolfvujrpblnrvy.supabase.co/rest/v1/players?select=name&order=name&limit=1000`, {
             method: 'GET',
@@ -341,6 +360,7 @@ export function Top10() {
             const playersData = await playersResponse.json();
             setSuggestions((playersData ?? []).map((p: any) => p.name));
           } else {
+            console.error("Erreur recherche joueurs:", playersResponse.status);
             // En cas d'erreur, utiliser les réponses de la question comme suggestions
             setSuggestions(list.map(p => p.answer));
           }
