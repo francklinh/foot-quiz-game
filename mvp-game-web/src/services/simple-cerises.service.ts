@@ -1,135 +1,92 @@
-// Service de cerises simplifié utilisant localStorage
-// En attendant que la base de données soit correctement configurée
-
-export interface CerisesTransaction {
-  id: string;
-  user_id: string;
-  amount: number;
-  type: 'EARNED' | 'SPENT' | 'TRANSFER_IN' | 'TRANSFER_OUT';
-  description: string;
-  created_at: string;
-}
+// Service simplifié pour les cerises utilisant l'API directe
+const SUPABASE_URL = 'https://qahbsyolfvujrpblnrvy.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhaGJzeW9sZnZ1anJwYmxucnZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk0MjY3NTQsImV4cCI6MjA3NTAwMjc1NH0.R_5UPLhgDXW1IA7oGpUE7VB-1OFq-Tx7CNrOPJZ1XrA';
 
 export class SimpleCerisesService {
-  private readonly STORAGE_KEY = 'cerises_balance';
-  private readonly TRANSACTIONS_KEY = 'cerises_transactions';
+  private async getAuthHeaders() {
+    const token = localStorage.getItem('sb-qahbsyolfvujrpblnrvy-auth-token');
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+    
+    const tokenData = JSON.parse(token);
+    if (!tokenData.access_token) {
+      throw new Error('No access token found');
+    }
+    
+    return {
+      'Authorization': `Bearer ${tokenData.access_token}`,
+      'apikey': SUPABASE_ANON_KEY,
+      'Content-Type': 'application/json'
+    };
+  }
 
-  /**
-   * Get user's current cerises balance
-   */
   async getUserCerises(userId: string): Promise<number> {
     try {
-      const stored = localStorage.getItem(`${this.STORAGE_KEY}_${userId}`);
-      if (stored) {
-        const balance = parseInt(stored, 10);
-        return isNaN(balance) ? 0 : balance;
-      }
+      const headers = await this.getAuthHeaders();
       
-      // Si pas de balance stockée, initialiser avec 100 cerises
-      await this.initializeUserBalance(userId);
-      return 100;
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/users?select=cerises_balance&id=eq.${userId}`, {
+        method: 'GET',
+        headers
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data[0]?.cerises_balance || 0;
     } catch (error) {
-      console.error('Erreur lors de la récupération des cerises:', error);
-      return 0;
+      console.error('Error getting user cerises:', error);
+      return 0; // Retourner 0 en cas d'erreur
     }
   }
 
-  /**
-   * Add cerises to user's balance
-   */
   async addCerises(userId: string, amount: number): Promise<number> {
     try {
-      const currentBalance = await this.getUserCerises(userId);
-      const newBalance = currentBalance + amount;
+      const headers = await this.getAuthHeaders();
       
-      localStorage.setItem(`${this.STORAGE_KEY}_${userId}`, newBalance.toString());
-      await this.logTransaction(userId, amount, 'EARNED', 'Cerises gagnées');
-      
-      return newBalance;
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/update_cerises_balance`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          p_user_id: userId,
+          p_amount: amount
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      return await response.json();
     } catch (error) {
-      console.error('Erreur lors de l\'ajout de cerises:', error);
+      console.error('Error adding cerises:', error);
       throw error;
     }
   }
 
-  /**
-   * Spend cerises from user's balance
-   */
   async spendCerises(userId: string, amount: number): Promise<number> {
     try {
-      const currentBalance = await this.getUserCerises(userId);
+      const headers = await this.getAuthHeaders();
       
-      if (currentBalance < amount) {
-        throw new Error('Solde insuffisant');
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/update_cerises_balance`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          p_user_id: userId,
+          p_amount: -amount
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
-      const newBalance = currentBalance - amount;
-      localStorage.setItem(`${this.STORAGE_KEY}_${userId}`, newBalance.toString());
-      await this.logTransaction(userId, -amount, 'SPENT', 'Cerises dépensées');
-      
-      return newBalance;
+
+      return await response.json();
     } catch (error) {
-      console.error('Erreur lors de la dépense de cerises:', error);
+      console.error('Error spending cerises:', error);
       throw error;
     }
-  }
-
-  /**
-   * Get user's cerises transaction history
-   */
-  async getCerisesHistory(userId: string): Promise<CerisesTransaction[]> {
-    try {
-      const stored = localStorage.getItem(`${this.TRANSACTIONS_KEY}_${userId}`);
-      if (stored) {
-        return JSON.parse(stored);
-      }
-      return [];
-    } catch (error) {
-      console.error('Erreur lors de la récupération de l\'historique:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Initialize user balance if not exists
-   */
-  private async initializeUserBalance(userId: string): Promise<void> {
-    localStorage.setItem(`${this.STORAGE_KEY}_${userId}`, '100');
-    await this.logTransaction(userId, 100, 'EARNED', 'Balance initiale');
-  }
-
-  /**
-   * Log a cerises transaction
-   */
-  private async logTransaction(
-    userId: string, 
-    amount: number, 
-    type: 'EARNED' | 'SPENT' | 'TRANSFER_IN' | 'TRANSFER_OUT', 
-    description: string
-  ): Promise<void> {
-    try {
-      const transactions = await this.getCerisesHistory(userId);
-      const newTransaction: CerisesTransaction = {
-        id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        user_id: userId,
-        amount,
-        type,
-        description,
-        created_at: new Date().toISOString()
-      };
-      
-      transactions.unshift(newTransaction);
-      localStorage.setItem(`${this.TRANSACTIONS_KEY}_${userId}`, JSON.stringify(transactions));
-    } catch (error) {
-      console.error('Erreur lors de l\'enregistrement de la transaction:', error);
-    }
-  }
-
-  /**
-   * Clear all cerises data for a user (for testing)
-   */
-  clearUserData(userId: string): void {
-    localStorage.removeItem(`${this.STORAGE_KEY}_${userId}`);
-    localStorage.removeItem(`${this.TRANSACTIONS_KEY}_${userId}`);
   }
 }

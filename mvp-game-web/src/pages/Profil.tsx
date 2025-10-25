@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { GlobalHeader } from "../components/GlobalHeader";
-import { CerisesDisplay } from "../components/CerisesDisplay";
-import { FriendsList } from "../components/FriendsList";
-import { ChallengesList } from "../components/ChallengesList";
+import { ApiCerisesDisplay } from "../components/ApiCerisesDisplay";
+import { ApiFriendsList } from "../components/ApiFriendsList";
+import { ApiChallengesList } from "../components/ApiChallengesList";
 import { supabase } from "../lib/supabase";
 import { User } from "@supabase/supabase-js";
 
@@ -271,7 +271,7 @@ export function Profil() {
         {user && (
           <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
             <h2 className="text-2xl font-bold text-primary mb-4">Mes Cerises</h2>
-            <CerisesDisplay 
+            <ApiCerisesDisplay 
               userId={user.id} 
               className="text-center"
             />
@@ -281,14 +281,14 @@ export function Profil() {
         {/* Section Amis */}
         {user && (
           <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
-            <FriendsList userId={user.id} />
+            <ApiFriendsList userId={user.id} />
           </div>
         )}
 
         {/* Section Défis */}
         {user && (
           <div className="bg-white rounded-2xl shadow-xl p-6">
-            <ChallengesList userId={user.id} />
+            <ApiChallengesList userId={user.id} />
           </div>
         )}
       </div>
