@@ -490,11 +490,15 @@ export function Top10() {
         const totalReward = baseReward + bonusReward;
 
         if (totalReward > 0) {
+          console.log(`🎯 Calcul des cerises: score=${score}, baseReward=${baseReward}, bonusReward=${bonusReward}, totalReward=${totalReward}`);
+          console.log(`🍒 Ajout de ${totalReward} cerises pour l'utilisateur ${userId}`);
+          
           await cerisesService.addCerises(userId, totalReward);
           setCerisesEarned(totalReward);
 
           // Update user cerises display
           const newBalance = await cerisesService.getUserCerises(userId);
+          console.log(`💰 Nouveau solde cerises: ${newBalance}`);
           setUserCerises(newBalance);
         }
 

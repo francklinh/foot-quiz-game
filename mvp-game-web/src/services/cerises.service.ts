@@ -66,18 +66,42 @@ export class CerisesService {
     this.validateAmount(amount);
 
     try {
-      // Utiliser la fonction SQL qui gère automatiquement la transaction
-      const { data, error } = await supabase.rpc('update_cerises_balance', {
-        p_user_id: userId,
-        p_amount: amount
-      });
+      console.log(`🔧 CerisesService.addCerises: userId=${userId}, amount=${amount}`);
+      
+      // Récupérer le solde actuel
+      const { data: currentData, error: currentError } = await supabase
+        .from('users')
+        .select('cerises_balance')
+        .eq('id', userId)
+        .single();
 
-      if (error) {
-        throw new Error(error.message);
+      if (currentError) {
+        console.error(`❌ Erreur récupération solde actuel:`, currentError);
+        throw new Error(currentError.message);
       }
 
-      return data;
+      const currentBalance = currentData?.cerises_balance || 0;
+      const newBalance = currentBalance + amount;
+      
+      console.log(`💰 Solde actuel: ${currentBalance}, nouveau solde: ${newBalance}`);
+
+      // Mettre à jour le solde
+      const { data: updateData, error: updateError } = await supabase
+        .from('users')
+        .update({ cerises_balance: newBalance })
+        .eq('id', userId)
+        .select('cerises_balance')
+        .single();
+
+      if (updateError) {
+        console.error(`❌ Erreur mise à jour solde:`, updateError);
+        throw new Error(updateError.message);
+      }
+
+      console.log(`✅ Cerises ajoutées avec succès: ${updateData.cerises_balance}`);
+      return updateData.cerises_balance;
     } catch (error) {
+      console.error(`❌ Erreur dans addCerises:`, error);
       throw new Error(ERROR_MESSAGES.ADD_CERISES_FAILED);
     }
   }
