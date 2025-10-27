@@ -10,7 +10,6 @@ import { Profil } from "./pages/Profil";
 import { Jeux } from "./pages/Jeux";
 import { Stats } from "./pages/Stats";
 import { Shop } from "./pages/Shop";
-import { Challenges } from "./pages/Challenges";
 import { Friends } from "./pages/Friends";
 import ChallengeResults from "./pages/ChallengeResults";
 import ChallengesHistory from "./pages/ChallengesHistory";

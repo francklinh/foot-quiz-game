@@ -8,16 +8,16 @@ import { MultiplayerChallengesService } from "../services/multiplayer-challenges
 import { useChallenge } from "../hooks/useChallenge";
 
 // Fonction utilitaire pour obtenir l'utilisateur connecté via API
-const getCurrentUser = async () => {
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) {
-    throw new Error('User not authenticated');
-  }
-  return user;
-};
+// const getCurrentUser = async () => {
+//   const { data: { user }, error } = await supabase.auth.getUser();
+//   if (error || !user) {
+//     throw new Error('User not authenticated');
+//   }
+//   return user;
+// };
 
 // --- Types DB ---
-type ThemeRow = { id: string; slug: string; title: string };
+// type ThemeRow = { id: string; slug: string; title: string };
 type ThemeAnswerRow = { 
   answer: string; 
   answer_norm: string;

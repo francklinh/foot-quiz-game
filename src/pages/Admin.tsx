@@ -1,7 +1,6 @@
 // src/pages/Admin.tsx
 import React, { useState } from "react";
 import { AdminDashboard } from "../components/AdminDashboard";
-import { AdminLogin } from "../components/AdminLogin";
 import { AdminAuthBypass } from "../components/AdminAuthBypass";
 import { useAdminAuth } from "../Utils/auth";
 
