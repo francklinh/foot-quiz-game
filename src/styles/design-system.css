@@ -1,0 +1,214 @@
+/* CLAFOOTIX Design System - Palette de couleurs cohérente */
+
+:root {
+  /* Couleurs principales CLAFOOTIX */
+  --primary: #E53E3E;        /* Rouge CLAFOOTIX principal */
+  --primary-dark: #C53030;   /* Rouge foncé */
+  --primary-light: #FED7D7;  /* Rouge clair */
+  
+  --secondary: #2D3748;      /* Gris foncé */
+  --secondary-dark: #1A202C; /* Gris très foncé */
+  --secondary-light: #4A5568; /* Gris moyen */
+  
+  --accent: #F7FAFC;         /* Gris très clair */
+  --accent-light: #EDF2F7;   /* Gris clair */
+  --accent-dark: #E2E8F0;    /* Gris moyen clair */
+  
+  /* Couleurs de statut */
+  --success: #38A169;        /* Vert */
+  --success-light: #C6F6D5; /* Vert clair */
+  --warning: #D69E2E;        /* Orange */
+  --warning-light: #FEFCBF;  /* Orange clair */
+  --danger: #E53E3E;         /* Rouge (même que primary) */
+  --danger-light: #FED7D7;   /* Rouge clair */
+  --info: #3182CE;           /* Bleu */
+  --info-light: #BEE3F8;     /* Bleu clair */
+  
+  /* Couleurs de texte */
+  --text-primary: #1A202C;   /* Texte principal (très foncé) */
+  --text-secondary: #4A5568; /* Texte secondaire */
+  --text-muted: #718096;     /* Texte atténué */
+  --text-inverse: #FFFFFF;   /* Texte sur fond coloré */
+  
+  /* Couleurs de fond */
+  --bg-primary: #FFFFFF;     /* Fond principal (blanc) */
+  --bg-secondary: #F7FAFC;   /* Fond secondaire */
+  --bg-accent: #EDF2F7;      /* Fond accent */
+  
+  /* Ombres */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  
+  /* Bordures */
+  --border-light: #E2E8F0;
+  --border-medium: #CBD5E0;
+  --border-dark: #A0AEC0;
+  
+  /* Rayons */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+}
+
+/* Classes utilitaires pour un meilleur contraste */
+.text-primary { color: var(--text-primary) !important; }
+.text-secondary { color: var(--text-secondary) !important; }
+.text-muted { color: var(--text-muted) !important; }
+.text-inverse { color: var(--text-inverse) !important; }
+
+.bg-primary { background-color: var(--primary) !important; }
+.bg-primary-dark { background-color: var(--primary-dark) !important; }
+.bg-primary-light { background-color: var(--primary-light) !important; }
+
+.bg-secondary { background-color: var(--secondary) !important; }
+.bg-secondary-dark { background-color: var(--secondary-dark) !important; }
+.bg-secondary-light { background-color: var(--secondary-light) !important; }
+
+.bg-accent { background-color: var(--accent) !important; }
+.bg-accent-light { background-color: var(--accent-light) !important; }
+.bg-accent-dark { background-color: var(--accent-dark) !important; }
+
+/* Couleurs de statut avec bon contraste */
+.bg-success { background-color: var(--success) !important; color: white !important; }
+.bg-success-light { background-color: var(--success-light) !important; color: var(--text-primary) !important; }
+.bg-warning { background-color: var(--warning) !important; color: white !important; }
+.bg-warning-light { background-color: var(--warning-light) !important; color: var(--text-primary) !important; }
+.bg-danger { background-color: var(--danger) !important; color: white !important; }
+.bg-danger-light { background-color: var(--danger-light) !important; color: var(--text-primary) !important; }
+.bg-info { background-color: var(--info) !important; color: white !important; }
+.bg-info-light { background-color: var(--info-light) !important; color: var(--text-primary) !important; }
+
+/* Bordures avec bon contraste */
+.border-primary { border-color: var(--primary) !important; }
+.border-secondary { border-color: var(--secondary) !important; }
+.border-accent { border-color: var(--accent-dark) !important; }
+.border-light { border-color: var(--border-light) !important; }
+.border-medium { border-color: var(--border-medium) !important; }
+
+/* Ombres cohérentes */
+.shadow-sm { box-shadow: var(--shadow-sm) !important; }
+.shadow-md { box-shadow: var(--shadow-md) !important; }
+.shadow-lg { box-shadow: var(--shadow-lg) !important; }
+.shadow-xl { box-shadow: var(--shadow-xl) !important; }
+
+/* Rayons cohérents */
+.rounded-sm { border-radius: var(--radius-sm) !important; }
+.rounded-md { border-radius: var(--radius-md) !important; }
+.rounded-lg { border-radius: var(--radius-lg) !important; }
+.rounded-xl { border-radius: var(--radius-xl) !important; }
+.rounded-2xl { border-radius: var(--radius-2xl) !important; }
+
+/* Classes spéciales pour les cartes avec bon contraste */
+.card-primary {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow-md);
+  color: var(--text-primary);
+}
+
+.card-accent {
+  background-color: var(--accent);
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow-sm);
+  color: var(--text-primary);
+}
+
+.card-colored {
+  background-color: var(--primary);
+  color: var(--text-inverse);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Boutons avec bon contraste */
+.btn-primary {
+  background-color: var(--primary);
+  color: var(--text-inverse);
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-secondary {
+  background-color: var(--secondary);
+  color: var(--text-inverse);
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background-color: var(--secondary-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-outline {
+  background-color: transparent;
+  color: var(--primary);
+  border: 2px solid var(--primary);
+  transition: all 0.2s ease;
+}
+
+.btn-outline:hover {
+  background-color: var(--primary);
+  color: var(--text-inverse);
+}
+
+/* Inputs avec bon contraste */
+.input-primary {
+  background-color: var(--bg-primary);
+  border: 2px solid var(--border-light);
+  color: var(--text-primary);
+  transition: border-color 0.2s ease;
+}
+
+.input-primary:focus {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+/* Textes avec bon contraste */
+.heading-primary {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.heading-secondary {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+/* Backgrounds avec bon contraste */
+.bg-pattern {
+  background-color: var(--bg-secondary);
+  background-image: 
+    radial-gradient(circle at 25% 25%, var(--primary-light) 0%, transparent 50%),
+    radial-gradient(circle at 75% 75%, var(--accent-dark) 0%, transparent 50%);
+}
+
+/* Animations cohérentes */
+.transition-all {
+  transition: all 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+
+
+
