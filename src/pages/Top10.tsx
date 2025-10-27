@@ -967,7 +967,7 @@ export function Top10() {
                 return (
                   <div
                     key={index}
-                    className="flex items-center gap-2 p-3 rounded-xl border-2 border-accent-light bg-white"
+                    className="flex items-center gap-2 p-3 rounded-xl border-2 border-accent-light bg-white relative"
                   >
                     <span className="text-2xl font-bold text-primary">
                       {answer.ranking || (index + 1)}.
@@ -977,20 +977,23 @@ export function Top10() {
                     </span>
                     <span 
                       className={`font-bold text-text flex-1 transition-all duration-500 ${
-                        unblurred ? "" : "blur-sm"
+                        unblurred ? "" : "blur-md"
                       }`}
                     >
                       {answer.answer}
                     </span>
                     {statValue && (
                       <span className={`text-sm font-semibold text-text bg-accent px-2 py-1 rounded transition-all duration-500 ${
-                        unblurred ? "" : "blur-sm"
+                        unblurred ? "" : "blur-md"
                       }`}>
                         {statValue} {statUnit}
                       </span>
                     )}
                     {unblurred && (
                       <span className="text-primary text-lg">✅</span>
+                    )}
+                    {!unblurred && (
+                      <div className="absolute inset-0 bg-gray-400 opacity-30 rounded-xl"></div>
                     )}
                   </div>
                 );
@@ -1008,7 +1011,7 @@ export function Top10() {
                 return (
                   <div
                     key={index + 5}
-                    className="flex items-center gap-2 p-3 rounded-xl border-2 border-accent-light bg-white"
+                    className="flex items-center gap-2 p-3 rounded-xl border-2 border-accent-light bg-white relative"
                   >
                     <span className="text-2xl font-bold text-primary">
                       {answer.ranking || (index + 6)}.
@@ -1018,20 +1021,23 @@ export function Top10() {
                     </span>
                     <span 
                       className={`font-bold text-text flex-1 transition-all duration-500 ${
-                        unblurred ? "" : "blur-sm"
+                        unblurred ? "" : "blur-md"
                       }`}
                     >
                       {answer.answer}
                     </span>
                     {statValue && (
                       <span className={`text-sm font-semibold text-text bg-accent px-2 py-1 rounded transition-all duration-500 ${
-                        unblurred ? "" : "blur-sm"
+                        unblurred ? "" : "blur-md"
                       }`}>
                         {statValue} {statUnit}
                       </span>
                     )}
                     {unblurred && (
                       <span className="text-primary text-lg">✅</span>
+                    )}
+                    {!unblurred && (
+                      <div className="absolute inset-0 bg-gray-400 opacity-30 rounded-xl"></div>
                     )}
                   </div>
                 );
@@ -1090,7 +1096,7 @@ export function Top10() {
                   return (
                     <div
                       key={index}
-                      className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                      className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all relative ${
                         found
                           ? "bg-gradient-to-r from-green-100 to-emerald-100 border-green-400"
                           : "bg-gradient-to-r from-red-100 to-rose-100 border-red-400"
@@ -1108,16 +1114,19 @@ export function Top10() {
                       <span 
                         className={`font-bold flex-1 transition-all duration-500 ${
                           found ? "text-green-800" : "text-red-800"
-                        } ${!unblurred ? "blur-sm" : ""}`}
+                        } ${!unblurred ? "blur-md" : ""}`}
                       >
                         {answer.answer}
                       </span>
                       {statValue && (
                         <span className={`text-xs font-semibold text-gray-600 bg-gray-100 px-2 py-1 rounded ${
-                          !unblurred ? "blur-sm" : ""
+                          !unblurred ? "blur-md" : ""
                         }`}>
                           {statValue} {statUnit}
                         </span>
+                      )}
+                      {!unblurred && (
+                        <div className="absolute inset-0 bg-gray-400 opacity-30 rounded-xl"></div>
                       )}
                     </div>
                   );
@@ -1136,7 +1145,7 @@ export function Top10() {
                   return (
                     <div
                       key={index + 5}
-                      className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                      className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all relative ${
                         found
                           ? "bg-gradient-to-r from-green-100 to-emerald-100 border-green-400"
                           : "bg-gradient-to-r from-red-100 to-rose-100 border-red-400"
@@ -1154,16 +1163,19 @@ export function Top10() {
                       <span 
                         className={`font-bold flex-1 transition-all duration-500 ${
                           found ? "text-green-800" : "text-red-800"
-                        } ${!unblurred ? "blur-sm" : ""}`}
+                        } ${!unblurred ? "blur-md" : ""}`}
                       >
                         {answer.answer}
                       </span>
                       {statValue && (
                         <span className={`text-xs font-semibold text-gray-600 bg-gray-100 px-2 py-1 rounded ${
-                          !unblurred ? "blur-sm" : ""
+                          !unblurred ? "blur-md" : ""
                         }`}>
                           {statValue} {statUnit}
                         </span>
+                      )}
+                      {!unblurred && (
+                        <div className="absolute inset-0 bg-gray-400 opacity-30 rounded-xl"></div>
                       )}
                     </div>
                   );
