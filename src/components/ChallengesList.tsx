@@ -58,12 +58,17 @@ export const ChallengesList: React.FC<ChallengesListProps> = ({
         limit
       });
 
+      // Dédupliquer les défis (au cas où il y aurait des doublons)
+      const uniqueChallenges = Array.from(
+        new Map(data.map(ch => [ch.id, ch])).values()
+      );
+
       // Filtrer pour ne garder que les défis où l'utilisateur peut encore jouer ou a joué
-      let filteredChallenges = data;
+      let filteredChallenges = uniqueChallenges;
       
       if (filter === 'active') {
         // Défis actifs = défis où l'utilisateur n'a pas encore joué
-        filteredChallenges = data.filter(challenge => {
+        filteredChallenges = uniqueChallenges.filter(challenge => {
           const userParticipant = challenge.participants?.find(p => p.user_id === session.user.id);
           return userParticipant?.status === 'pending' || userParticipant?.status === 'active';
         });

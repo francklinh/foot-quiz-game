@@ -299,9 +299,14 @@ export class MultiplayerChallengesService {
 
       if (challengeError) throw challengeError;
 
+      // Dédupliquer les défis (au cas où un défi apparaîtrait plusieurs fois)
+      const uniqueChallenges = Array.from(
+        new Map((challenges || []).map(ch => [ch.id, ch])).values()
+      );
+
       // Étape 3: Pour chaque défi, récupérer les participants
       const challengesWithParticipants = await Promise.all(
-        (challenges || []).map(async (challenge) => {
+        uniqueChallenges.map(async (challenge) => {
           const { data: participants, error: participantsError } = await supabase
             .from('challenge_participants')
             .select(`

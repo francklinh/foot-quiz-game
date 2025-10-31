@@ -210,6 +210,9 @@ export function Top10() {
       return;
     }
 
+    // Marquer immédiatement pour éviter les créations multiples
+    challengesCreatedRef.current = true;
+
     const createMultiplayerChallenge = async () => {
       console.log('🎯 Création d\'un défi multi-joueurs avec:', challengedPlayerIds);
       
@@ -231,7 +234,6 @@ export function Top10() {
         );
         
         setCreatedChallenges([challenge.id]);
-        challengesCreatedRef.current = true;
         
         console.log(`🎉 Défi multi-joueurs créé avec succès !`);
         console.log(`   ID: ${challenge.id}`);
@@ -243,11 +245,13 @@ export function Top10() {
         });
       } catch (error) {
         console.error('❌ Erreur lors de la création du défi:', error);
+        // En cas d'erreur, réinitialiser le flag pour permettre une nouvelle tentative
+        challengesCreatedRef.current = false;
       }
     };
 
     createMultiplayerChallenge();
-  }, [userId, isMultiplayerChallenge, challengedPlayerIds, selectedQuestion]);
+  }, [userId, isMultiplayerChallenge, challengedPlayerIds.length, selectedQuestion]);
 
   // Load available questions
   useEffect(() => {
