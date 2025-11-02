@@ -2,9 +2,9 @@
 
 **Application Mobile de Jeux de Football**
 
-**Version** : 1.0  
-**Date** : Octobre 2025  
-**Statut** : Spécifications Techniques Complètes
+**Version** : 1.1  
+**Date** : Janvier 2025  
+**Statut** : Spécifications Techniques Mises à Jour (post-développement MVP)
 
 ---
 
@@ -30,19 +30,34 @@
 
 ### 1.1 Concept
 
-CLAFOOTIX est une application mobile de jeux de football permettant aux utilisateurs de tester leurs connaissances footballistiques à travers 3 types de jeux :
+CLAFOOTIX est une application de jeux de football permettant aux utilisateurs de tester leurs connaissances footballistiques.
 
-- **TOP 10** : Deviner le top 10 d'un classement (ex: meilleurs buteurs)
-- **GRILLE 3×3** : Remplir une grille en trouvant des joueurs selon des critères croisés (ligue + pays)
-- **CLUB** : Deviner le club actuel d’un joueur présenté (photo/nom/indice), un joueur à la fois
+**Jeux actuellement disponibles** :
+- **TOP 10** ✅ : Deviner le top 10 d'un classement (ex: meilleurs buteurs)
+  - Jeu pleinement implémenté et fonctionnel
+  - Mode Solo et Mode Défi disponibles
+  - Système de scoring et classement opérationnel
+
+**Jeux en développement** :
+- **LOGO SNIPER** 🔜 : Jeu de rapidité et de réflexe visuel où le joueur doit identifier des logos de clubs ou de sélections apparaissant successivement
+- **CLUB ACTUEL** 🔜 : Deviner le club actuel d'un joueur présenté (photo/nom/indice), un joueur à la fois
+- **CARRIÈRE INFERNALE** 🔜 : [Description à venir]
 
 ### 1.2 Modes de Jeu
 
 | Mode | Description | Joueurs | Caractéristiques |
 |------|-------------|---------|------------------|
-| **Solo** | Partie individuelle | 1 | Immédiat, score personnel |
-| **Multijoueur** | Partie asynchrone entre amis | 2-15 | Admin crée, deadline configurable |
+| **Solo** | Partie individuelle | 1 | Immédiat, score personnel, question aléatoire |
+| **Défi** | Partie asynchrone entre amis | **2 à N** | Créateur choisit la question, invite plusieurs joueurs simultanément, deadline 48h par défaut, classement automatique |
 | **Ligue** | Tournoi permanent avec parties régulières | Illimité | Admin crée, parties générées automatiquement |
+
+**Note importante sur le Mode Défi** :
+- Le terme "Défi" est utilisé dans l'interface utilisateur (remplace "Multijoueur")
+- Architecture multi-joueurs : support de 2 à N participants (pas de limite fixe de 15)
+- Le créateur du défi choisit la question, qui est ensuite imposée à tous les participants
+- Chaque participant joue indépendamment dans les 48 heures
+- Classement automatique basé sur le score, puis le temps en cas d'égalité
+- Statuts : `pending` (en attente), `active` (en cours), `completed` (terminé), `declined` (refusé)
 
 ### 1.3 Objectifs
 
@@ -59,9 +74,17 @@ CLAFOOTIX est une application mobile de jeux de football permettant aux utilisat
 
 ### 1.5 Plateformes
 
-- iOS (iPhone, iPad)
-- Android (smartphones, tablettes)
-- Web (navigateurs modernes)
+**Phase MVP (actuelle - Janvier 2025)** :
+- ✅ **Web** (navigateurs modernes) - **DÉPLOYÉ EN PRODUCTION**
+  - URL de production : https://mvp-game-web.vercel.app
+  - Infrastructure : Vercel
+  - Framework : React + TypeScript + Tailwind CSS
+  - Responsive design pour mobile et desktop
+
+**Phase 2 (à venir)** :
+- ❌ iOS (iPhone, iPad) - **EN PLANIFICATION**
+- ❌ Android (smartphones, tablettes) - **EN PLANIFICATION**
+  - Utilisation prévue de React Native pour développement multiplateforme
 
 ---
 
@@ -135,8 +158,9 @@ clafootix/
 │   │   ├── common/              # Boutons, inputs, cards...
 │   │   ├── game/                # Composants spécifiques jeux
 │   │   │   ├── Top10Game.tsx
-│   │   │   ├── GrilleGame.tsx
-│   │   │   └── ClubGame.tsx
+│   │   │   ├── LogoSniperGame.tsx
+│   │   │   ├── ClubActuelGame.tsx
+│   │   │   └── CarriereInfernaleGame.tsx
 │   │   ├── league/              # Gestion ligues
 │   │   ├── social/              # Amis, invitations
 │   │   └── layout/              # Header, Footer, Navigation
@@ -236,15 +260,16 @@ La base de données PostgreSQL est organisée en **6 zones fonctionnelles** :
 5. **🟪 Social** : Amitiés et notifications
 6. **🟧 Admin** : Administration et audit
 
-**Total : 16 tables**
+**Total : 16 tables principales** (users, game_types, players, clubs, questions, question_answers, challenges, challenge_participants, leagues, league_members, friendships, invitations, notifications, admins, admin_audit_log, cerises_transactions)
 
 ### 3.2 Diagramme ERD Simplifié
 
 ```
 USERS ────┐
-          ├──→ MATCH_PARTICIPANTS ──→ MATCHES ──→ GAME_TYPES
-          ├──→ LEAGUE_MEMBERS ──→ LEAGUES        ──→ QUESTIONS ──→ PLAYERS
-          ├──→ FRIENDSHIPS                        └──→ GRID_ANSWERS
+          ├──→ CHALLENGE_PARTICIPANTS ──→ CHALLENGES ──→ QUESTIONS ──→ QUESTION_ANSWERS ──→ PLAYERS
+          │                                                              └──→ CLUBS
+          ├──→ LEAGUE_MEMBERS ──→ LEAGUES
+          ├──→ FRIENDSHIPS
           ├──→ INVITATIONS
           ├──→ NOTIFICATIONS
           └──→ ADMINS ──→ ADMIN_AUDIT_LOG
@@ -278,7 +303,7 @@ CREATE INDEX idx_users_pseudo ON users(pseudo);
 **Règles métier** :
 - Pseudo unique, 3-50 caractères
 - Email validé lors inscription
-- `cerises_balance` : Monnaie virtuelle, jamais négatif
+- `cerises_balance` : Monnaie virtuelle, valeur par défaut **0** pour les nouveaux utilisateurs, jamais négatif (contrainte CHECK)
 - `global_score` : Somme de tous les scores (tous modes)
 - `global_rank` : Position mondiale, calculé via fonction
 
@@ -286,12 +311,12 @@ CREATE INDEX idx_users_pseudo ON users(pseudo);
 
 #### 3.3.2 **game_types** (Types de Jeux)
 
-Référentiel des 3 types de jeux disponibles (données fixes).
+Référentiel des types de jeux disponibles (données fixes).
 
 ```sql
 CREATE TABLE game_types (
   id SERIAL PRIMARY KEY,
-  code VARCHAR(20) UNIQUE NOT NULL,      -- 'TOP10', 'GRILLE', 'CLUB'
+  code VARCHAR(20) UNIQUE NOT NULL,      -- 'TOP10', 'LOGO_SNIPER', 'CLUB_ACTUEL', 'CARRIERE_INFERNALE'
   name VARCHAR(100) NOT NULL,
   description TEXT,
   duration_seconds INTEGER DEFAULT 60,   -- Durée de jeu
@@ -301,8 +326,9 @@ CREATE TABLE game_types (
 -- Données initiales
 INSERT INTO game_types (code, name, description, duration_seconds) VALUES
   ('TOP10', 'Top 10', 'Trouve les 10 éléments d''un classement', 60),
-  ('GRILLE', 'Grille 3x3', 'Remplis la grille en trouvant un joueur par case', 60),
-  ('CLUB', 'Club', 'Devine le club actuel des joueurs', 60);
+  ('LOGO_SNIPER', 'Logo Sniper', 'Identifie rapidement les logos de clubs et sélections apparaissant successivement', 60),
+  ('CLUB_ACTUEL', 'Club Actuel', 'Devine le club actuel des joueurs présentés', 60),
+  ('CARRIERE_INFERNALE', 'Carrière Infernale', '[Description à venir]', 60);
 ```
 
 ---
@@ -314,12 +340,15 @@ Base de données des joueurs pour autocomplétion et référence.
 ```sql
 CREATE TABLE players (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name VARCHAR(200) NOT NULL,
+  name VARCHAR(200) NOT NULL UNIQUE,    -- Nom unique pour éviter les doublons
   current_club VARCHAR(200),
   position VARCHAR(50),                  -- Attaquant, Milieu, Défenseur, Gardien
   nationality VARCHAR(100),
   nationality_code VARCHAR(3),           -- FRA, BRA, ARG...
   club_history JSONB,                    -- Historique clubs
+  name_variations TEXT[],                -- Variantes de noms pour recherche flexible
+  slug VARCHAR(255),                     -- Slug généré automatiquement pour URL
+  search_vector tsvector,                -- Vecteur de recherche full-text (auto-généré)
   is_active BOOLEAN DEFAULT true,        -- Actif ou retraité
   is_verified BOOLEAN DEFAULT false,     -- Vérifié par admin
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -330,6 +359,8 @@ CREATE TABLE players (
 CREATE INDEX idx_players_name ON players(name);
 CREATE INDEX idx_players_active ON players(is_active) WHERE is_active = true;
 CREATE INDEX idx_players_nationality ON players(nationality_code);
+CREATE INDEX idx_players_slug ON players(slug) WHERE slug IS NOT NULL;
+CREATE INDEX idx_players_search_vector ON players USING gin(search_vector);
 ```
 
 **Exemple de `club_history` (JSONB)** :
@@ -360,20 +391,72 @@ CREATE INDEX idx_players_nationality ON players(nationality_code);
 ```
 
 **Règles métier** :
-- Autocomplétion simple : recherche sur `name` à partir de 3 lettres
+- **Nom unique** : `name` doit être unique (contrainte `UNIQUE`) pour éviter les doublons
+- **Autocomplétion** : Recherche full-text via `search_vector` et recherche sur `name_variations`
 - `club_history` : Historique des clubs en JSONB pour flexibilité
+- `name_variations` : Tableau de variantes de noms pour améliorer la recherche (ex: ["Mbappé", "Mbappe", "K. Mbappé"])
+- `slug` : Généré automatiquement à partir du nom (minuscules, sans accents, avec tirets) pour URLs
+- `search_vector` : Vecteur de recherche full-text auto-généré pour recherche avancée
 - `is_verified` : Contrôle qualité par les admins
 
 ---
 
-#### 3.3.4 **questions** (Banque de Questions)
+#### 3.3.4 **clubs** (Clubs et Sélections - Base de Référence pour Logo Sniper)
 
-Stockage des questions pour les 3 types de jeux.
+Table centralisée des clubs et sélections nationales, utilisée comme base de données pour l'autocomplétion et les questions Logo Sniper.
+
+```sql
+CREATE TABLE clubs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name VARCHAR(200) NOT NULL UNIQUE,       -- Nom du club (ex: "Real Madrid")
+  name_variations TEXT[],                  -- Variantes acceptées (ex: ["Real Madrid CF", "Real", "Real Madrid Club de Fútbol"])
+  logo_url TEXT NOT NULL,                  -- URL de l'image du logo (Supabase Storage)
+  type VARCHAR(20) NOT NULL CHECK (type IN ('CLUB', 'NATIONAL_TEAM')), -- Type : club ou sélection
+  country VARCHAR(3),                      -- Code pays (FRA, ESP, BRA...) pour clubs
+  league VARCHAR(100),                     -- Ligue (ex: "La Liga", "Premier League")
+  is_active BOOLEAN DEFAULT true,           -- Actif dans la base
+  is_verified BOOLEAN DEFAULT false,       -- Vérifié par admin
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Indexes
+CREATE INDEX idx_clubs_name ON clubs(name);
+CREATE INDEX idx_clubs_type ON clubs(type);
+CREATE INDEX idx_clubs_country ON clubs(country) WHERE country IS NOT NULL;
+CREATE INDEX idx_clubs_active ON clubs(is_active) WHERE is_active = true;
+```
+
+**Exemples de données** :
+```sql
+-- Club
+INSERT INTO clubs (name, name_variations, logo_url, type, country, league) VALUES
+('Real Madrid', ARRAY['Real Madrid CF', 'Real', 'Real Madrid Club de Fútbol'], 
+ 'https://storage.supabase.co/bucket/logos/real-madrid.png', 'CLUB', 'ESP', 'La Liga');
+
+-- Sélection nationale
+INSERT INTO clubs (name, name_variations, logo_url, type, country) VALUES
+('France', ARRAY['Équipe de France', 'France', 'FRA'], 
+ 'https://storage.supabase.co/bucket/logos/france.png', 'NATIONAL_TEAM', 'FRA');
+```
+
+**Règles métier** :
+- **Nom unique** : `name` doit être unique pour éviter les doublons
+- **Autocomplétion** : La recherche se fait sur `name` et `name_variations`
+- **Logo obligatoire** : `logo_url` ne peut pas être NULL
+- **Type** : Distinction entre clubs (`CLUB`) et sélections nationales (`NATIONAL_TEAM`)
+- **Réutilisable** : Un même club peut apparaître dans plusieurs questions Logo Sniper
+
+---
+
+#### 3.3.5 **questions** (Banque de Questions)
+
+Stockage des questions pour tous les types de jeux (TOP10, LOGO SNIPER, CLUB ACTUEL, CARRIÈRE INFERNALE).
 
 ```sql
 CREATE TABLE questions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  game_type VARCHAR(20) NOT NULL CHECK (game_type IN ('TOP10', 'GRILLE', 'CLUB')),
+  game_type VARCHAR(20) NOT NULL CHECK (game_type IN ('TOP10', 'LOGO_SNIPER', 'CLUB_ACTUEL', 'CARRIERE_INFERNALE')),
   title VARCHAR(255) NOT NULL,           -- Titre simple de la question
   player_ids UUID[],                     -- Références vers players
   season VARCHAR(20),                    -- '2024-2025'
@@ -397,152 +480,195 @@ CREATE INDEX idx_questions_archived ON questions(is_archived) WHERE is_archived 
 - "Top 10 des meilleurs buteurs de Ligue 1 2024-2025"
 - "Top 10 des meilleurs passeurs de Premier League 2023-2024"
 
-**GRILLE** (game_type = 'GRILLE') :
-- "Grille 3x3 : Ligue 1, Premier League, La Liga / France, Brésil, Argentine"
-- "Grille 3x3 : Bundesliga, Serie A, Ligue 1 / Allemagne, Italie, France"
+**LOGO_SNIPER** (game_type = 'LOGO_SNIPER') :
+- "Clubs européens mythiques"
+- "Coupes du monde et sélections nationales"
+- "Logos rétro 80s–2000s"
 
-**CLUB** (game_type = 'CLUB') :
+**CLUB_ACTUEL** (game_type = 'CLUB_ACTUEL') :
 - "Devine le club actuel des joueurs (photo)"
 - "Devine le club actuel des joueurs (nom + nationalité)"
 
-Le champ `player_ids` contient les UUID des joueurs dans l'ordre pour TOP10, ou la liste complète pour GRILLE/CLUB.
+**CARRIERE_INFERNALE** (game_type = 'CARRIERE_INFERNALE') :
+- [Description à venir]
+
+**Note importante** : 
+- Le champ `player_ids` dans `questions` est optionnel et peut être utilisé pour référence rapide
+- **Les réponses détaillées sont stockées dans `question_answers`** pour tous les types de jeux
+- Pour TOP10 : `question_answers` contient les joueurs avec `ranking` et `points`
+- Pour LOGO SNIPER : `question_answers` référence les clubs via `club_id` (les logos et noms sont dans la table `clubs`)
+- Pour CLUB ACTUEL : `question_answers` contient les joueurs avec `player_id` et `display_order`
 
 ---
 
-#### 3.3.5 **grid_answers** (Réponses Valides GRILLE)
+#### 3.3.6 **question_answers** (Réponses aux Questions - Table Unique pour Tous les Jeux)
 
-Table séparée pour stocker les réponses valides des grilles 3×3.
-
-```sql
-CREATE TABLE grid_answers (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  question_id UUID NOT NULL REFERENCES questions(id),
-  league VARCHAR(100) NOT NULL,
-  country VARCHAR(100) NOT NULL,
-  player_id UUID NOT NULL REFERENCES players(id),
-  is_active BOOLEAN DEFAULT true,
-  is_archived BOOLEAN DEFAULT false,     -- Archivé avec la question
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  archived_at TIMESTAMP WITH TIME ZONE,
-  UNIQUE(question_id, league, country, player_id)
-);
-
--- Indexes
-CREATE INDEX idx_grid_answers_question ON grid_answers(question_id);
-CREATE INDEX idx_grid_answers_lookup ON grid_answers(question_id, league, country) 
-  WHERE is_active = true;
-CREATE INDEX idx_grid_answers_archived ON grid_answers(is_archived) WHERE is_archived = true;
-```
-
-**Exemple de données** :
-| question_id | league | country | player_id |
-|-------------|--------|---------|-----------|
-| uuid-question-1 | Ligue 1 | France | uuid-mbappe |
-| uuid-question-1 | Premier League | France | uuid-kante |
-| uuid-question-1 | La Liga | Brésil | uuid-vinicius |
-
-**Règles métier** :
-- Une combinaison (question_id, league, country, player_id) est unique
-- Validation se fait via `player_id` + recherche simple sur `name` du joueur
-- Archivage : Quand une question est archivée, ses réponses le sont aussi
-
----
-
-#### 3.3.6 **matches** (Parties)
-
-Table des parties jouables (solo, multi, ligue).
+Table unique pour stocker toutes les réponses valides aux questions, pour tous les types de jeux (TOP10, LOGO SNIPER, CLUB ACTUEL, CARRIÈRE INFERNALE).
 
 ```sql
-CREATE TABLE matches (
+CREATE TABLE question_answers (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  game_type_id INTEGER NOT NULL REFERENCES game_types(id),
-  mode VARCHAR(20) NOT NULL CHECK (mode IN ('solo', 'multiplayer', 'league')),
-  league_id UUID REFERENCES leagues(id) ON DELETE CASCADE,
-  match_number INTEGER,                  -- Numéro partie dans ligue
-  admin_id UUID REFERENCES users(id),    -- Créateur (multi/ligue)
-  max_players INTEGER DEFAULT 1 CHECK (max_players BETWEEN 1 AND 15),
-  status VARCHAR(20) DEFAULT 'waiting' CHECK (status IN ('waiting', 'in_progress', 'completed', 'expired')),
-  start_date TIMESTAMP WITH TIME ZONE NOT NULL,
-  end_date TIMESTAMP WITH TIME ZONE NOT NULL,  -- Deadline
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  completed_at TIMESTAMP WITH TIME ZONE,
+  question_id UUID NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
   
-  CHECK (
-    (mode = 'solo' AND max_players = 1) OR
-    (mode = 'multiplayer' AND max_players BETWEEN 2 AND 15) OR
-    (mode = 'league' AND league_id IS NOT NULL)
-  )
-);
-
--- Indexes
-CREATE INDEX idx_matches_mode ON matches(mode);
-CREATE INDEX idx_matches_league ON matches(league_id) WHERE league_id IS NOT NULL;
-CREATE INDEX idx_matches_status ON matches(status);
-CREATE INDEX idx_matches_end_date ON matches(end_date) 
-  WHERE status IN ('waiting', 'in_progress');
-```
-
-**Règles métier** :
-- Mode solo : 1 seul joueur, pas d'admin
-- Mode multiplayer : 2-15 joueurs, avec admin, deadline configurable
-- Mode league : lié à une ligue, deadline configurable, tous les membres participent
-
----
-
-#### 3.3.7 **match_participants** (Participants aux Parties)
-
-Lien entre joueurs et parties, stockage des scores.
-
-```sql
-CREATE TABLE match_participants (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  match_id UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  score INTEGER DEFAULT 0 CHECK (score >= 0),
-  rank INTEGER,                          -- Position finale (1er, 2e...)
-  completed_at TIMESTAMP WITH TIME ZONE,
-  cerises_earned INTEGER DEFAULT 0 CHECK (cerises_earned >= 0),
-  status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'playing', 'completed', 'expired')),
-  user_responses JSONB,                  -- Optionnel (analytics)
-  UNIQUE(match_id, user_id)
-);
-
--- Indexes
-CREATE INDEX idx_match_participants_user ON match_participants(user_id);
-CREATE INDEX idx_match_participants_match ON match_participants(match_id);
-CREATE INDEX idx_match_participants_status ON match_participants(status);
-```
-
-**Règles métier** :
-- Un user ne peut participer qu'une fois par match
-- Score calculé côté app via fonctions de validation
-- `rank` calculé après que tous ont terminé ou deadline atteinte
-- `user_responses` optionnel pour MVP (utile pour analytics phase 2)
-
----
-
-#### 3.3.8 **match_questions** (Questions des Parties)
-
-Lien entre parties et questions (1 match = 1 question).
-
-```sql
-CREATE TABLE match_questions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  match_id UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
-  question_id UUID NOT NULL REFERENCES questions(id),
+  -- Référence vers un joueur (pour TOP10, CLUB ACTUEL, CARRIÈRE INFERNALE)
+  player_id UUID REFERENCES players(id) ON DELETE SET NULL,
+  
+  -- Référence vers un club (pour LOGO SNIPER)
+  club_id UUID REFERENCES clubs(id) ON DELETE SET NULL,
+  
+  -- Réponse texte alternative (pour compatibilité ou questions texte uniquement)
+  answer_text VARCHAR(200),                -- Texte de réponse alternative (si pas de club_id/player_id)
+  answer_norm VARCHAR(200),                -- Version normalisée (sans accents, lowercase)
+  valid_names TEXT[],                      -- Noms alternatifs acceptés (deprecated si club_id utilisé)
+  
+  -- Données de classement (pour TOP10)
+  ranking INTEGER,                         -- Position dans le classement (1-10 pour TOP10)
+  points INTEGER,                          -- Points attribués selon le rang
+  
+  -- Données de validation (pour CLUB ACTUEL)
+  is_correct BOOLEAN,                      -- Réponse correcte ou non (pour CLUB ACTUEL)
+  
+  -- Ordre d'affichage (pour LOGO SNIPER, CLUB ACTUEL)
+  display_order INTEGER DEFAULT 0,         -- Ordre d'affichage dans la question
+  
+  -- Statut
+  is_active BOOLEAN DEFAULT true,
+  is_archived BOOLEAN DEFAULT false,
+  
+  -- Dates
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(match_id, question_id)
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  archived_at TIMESTAMP WITH TIME ZONE,
+  
+  -- Contraintes
+  CONSTRAINT has_player_club_or_answer_text CHECK (
+    (player_id IS NOT NULL) OR (club_id IS NOT NULL) OR (answer_text IS NOT NULL)
+  ),
+  CONSTRAINT valid_ranking CHECK (ranking IS NULL OR (ranking >= 1 AND ranking <= 20)),
+  CONSTRAINT valid_points CHECK (points IS NULL OR points >= 0)
 );
 
 -- Indexes
-CREATE INDEX idx_match_questions_match ON match_questions(match_id);
-CREATE INDEX idx_match_questions_question ON match_questions(question_id);
+CREATE INDEX idx_question_answers_question ON question_answers(question_id);
+CREATE INDEX idx_question_answers_player ON question_answers(player_id) WHERE player_id IS NOT NULL;
+CREATE INDEX idx_question_answers_club ON question_answers(club_id) WHERE club_id IS NOT NULL;
+CREATE INDEX idx_question_answers_ranking ON question_answers(question_id, ranking) WHERE ranking IS NOT NULL;
+CREATE INDEX idx_question_answers_active ON question_answers(is_active) WHERE is_active = true;
+CREATE INDEX idx_question_answers_display_order ON question_answers(question_id, display_order);
+CREATE INDEX idx_question_answers_answer_norm ON question_answers(answer_norm) WHERE answer_norm IS NOT NULL;
+```
+
+**Exemples de données selon le type de jeu** :
+
+**TOP10** (game_type = 'TOP10') :
+| question_id | player_id | ranking | points | answer_text | logo_url |
+|-------------|-----------|---------|--------|-------------|----------|
+| uuid-q1 | uuid-mbappe | 1 | 100 | NULL | NULL |
+| uuid-q1 | uuid-ben-yedder | 2 | 90 | NULL | NULL |
+
+**LOGO SNIPER** (game_type = 'LOGO_SNIPER') :
+| question_id | club_id | display_order | player_id | answer_text |
+|-------------|---------|---------------|-----------|-------------|
+| uuid-q2 | uuid-real-madrid | 1 | NULL | NULL |
+| uuid-q2 | uuid-barcelona | 2 | NULL | NULL |
+
+**Note** : Pour Logo Sniper, on référence directement `clubs.id`. Le logo et les noms valides sont dans la table `clubs`.
+
+**CLUB ACTUEL** (game_type = 'CLUB_ACTUEL') :
+| question_id | player_id | is_correct | answer_text | display_order |
+|-------------|-----------|------------|-------------|---------------|
+| uuid-q3 | uuid-mbappe | true | Real Madrid | 1 |
+| uuid-q3 | uuid-vinicius | true | Real Madrid | 2 |
+
+**Règles métier** :
+- **Table unique** pour tous les types de jeux
+- Pour **TOP10** : utilise `player_id`, `ranking`, `points`
+- Pour **LOGO SNIPER** : utilise `club_id`, `display_order` (référence vers la table `clubs` qui contient logo_url, name, name_variations)
+- Pour **CLUB ACTUEL** : utilise `player_id`, `is_correct`, `display_order`
+- Pour **CARRIÈRE INFERNALE** : [À définir selon les spécifications]
+- Contrainte : Au moins un de `player_id`, `club_id` ou `answer_text` doit être rempli
+- Pour Logo Sniper : Les données (logo, noms) sont dans `clubs`, évitant la duplication
+- Le champ `answer_norm` est utilisé pour la normalisation lors de la validation (sans accents, lowercase) si `answer_text` est utilisé
+- Archivage : Quand une question est archivée, ses réponses le sont aussi (via trigger ou application)
+
+---
+
+#### 3.3.7 **challenges** (Défis Multi-Joueurs)
+
+Table des défis créés par les utilisateurs (pour le mode Défi multi-joueurs).
+
+```sql
+CREATE TABLE challenges (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  creator_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  game_type VARCHAR(50) NOT NULL CHECK (game_type IN ('TOP10', 'LOGO_SNIPER', 'CLUB_ACTUEL', 'CARRIERE_INFERNALE')),
+  status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed', 'expired', 'cancelled')),
+  winner_ids TEXT DEFAULT NULL,                    -- IDs des gagnants (peut être plusieurs en cas d'égalité)
+  question_id UUID DEFAULT NULL,                   -- Question imposée par le créateur
+  max_participants INTEGER DEFAULT NULL,           -- NULL = illimité
+  min_participants INTEGER DEFAULT 2,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL,                 -- Deadline (48h par défaut)
+  completed_at TIMESTAMPTZ DEFAULT NULL,
+  
+  CONSTRAINT valid_expires_at CHECK (expires_at > created_at),
+  CONSTRAINT valid_participants CHECK (min_participants >= 2 AND (max_participants IS NULL OR max_participants >= min_participants))
+);
+
+-- Indexes
+CREATE INDEX idx_challenges_creator ON challenges(creator_id);
+CREATE INDEX idx_challenges_status ON challenges(status);
+CREATE INDEX idx_challenges_expires_at ON challenges(expires_at);
+CREATE INDEX idx_challenges_game_type ON challenges(game_type);
+CREATE INDEX idx_challenges_created_at ON challenges(created_at DESC);
 ```
 
 **Règles métier** :
-- **1 match = 1 question unique**
-- Tous les participants d'un match jouent la même question
-- En ligue : tous les membres de la ligue ont la même question pour une partie donnée
+- Un défi est créé par un `creator_id` (utilisateur)
+- Le créateur choisit la question (`question_id`) qui sera imposée à tous les participants
+- Support de 2 à N participants (pas de limite maximale fixe si `max_participants` est NULL)
+- Le statut évolue automatiquement : `pending` → `in_progress` → `completed` (via trigger PostgreSQL)
+- Les gagnants sont déterminés automatiquement selon le score et le temps
+- `winner_ids` peut contenir plusieurs IDs séparés par des virgules en cas d'égalité au 1er rang
+
+---
+
+#### 3.3.7 **challenge_participants** (Participants aux Défis)
+
+Table de liaison entre les défis et les utilisateurs participants, avec stockage des scores et classements.
+
+```sql
+CREATE TABLE challenge_participants (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  challenge_id UUID NOT NULL REFERENCES challenges(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'completed', 'declined')),
+  score INTEGER DEFAULT NULL,
+  time_taken INTEGER DEFAULT NULL,                 -- Temps de jeu en secondes
+  rank INTEGER DEFAULT NULL,                       -- Classement (1 = gagnant, NULL si non calculé)
+  joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  started_at TIMESTAMPTZ DEFAULT NULL,
+  completed_at TIMESTAMPTZ DEFAULT NULL,
+  
+  CONSTRAINT unique_challenge_user UNIQUE (challenge_id, user_id),
+  CONSTRAINT valid_score CHECK (score IS NULL OR score >= 0),
+  CONSTRAINT valid_time CHECK (time_taken IS NULL OR time_taken > 0),
+  CONSTRAINT valid_rank CHECK (rank IS NULL OR rank > 0)
+);
+
+-- Indexes
+CREATE INDEX idx_participants_challenge ON challenge_participants(challenge_id);
+CREATE INDEX idx_participants_user ON challenge_participants(user_id);
+CREATE INDEX idx_participants_status ON challenge_participants(status);
+CREATE INDEX idx_participants_challenge_status ON challenge_participants(challenge_id, status);
+```
+
+**Règles métier** :
+- Un utilisateur ne peut participer qu'une fois par défi (contrainte unique)
+- Le `status` évolue : `pending` (invité) → `active` (en train de jouer) → `completed` (terminé)
+- Le `rank` est calculé automatiquement après que tous les participants ont terminé (via trigger PostgreSQL)
+- Calcul du classement : `score DESC`, puis `time_taken ASC` en cas d'égalité
+- Plusieurs participants peuvent avoir le même rang en cas d'égalité parfaite
 
 ---
 
@@ -585,7 +711,7 @@ CREATE INDEX idx_leagues_next_match ON leagues(next_match_date)
 - Ligue "Entre Amis" : 8 parties, 1 par semaine, 6 participants
 - Chaque lundi à 12h00 : nouvelle partie créée automatiquement
 - Deadline : mardi 12h00 (24h)
-- Type de jeu : aléatoire (TOP10, GRILLE ou CLUB)
+- Type de jeu : aléatoire (TOP10, LOGO_SNIPER, CLUB_ACTUEL, CARRIERE_INFERNALE)
 
 ---
 
@@ -829,7 +955,7 @@ $ LANGUAGE plpgsql;
 ```sql
 CREATE OR REPLACE FUNCTION validate_top10_answer(
   p_question_id UUID,
-  p_user_answers TEXT[]
+  p_user_answers TEXT[] -- Tableau des réponses dans l'ordre (position 1-10)
 )
 RETURNS TABLE(
   correct_count INTEGER,
@@ -837,124 +963,168 @@ RETURNS TABLE(
   score INTEGER
 ) AS $
 DECLARE
-  v_player_ids UUID[];
-  v_correct TEXT[];
+  v_answer RECORD;
   v_user_answer TEXT;
   v_normalized TEXT;
-  v_player RECORD;
+  v_correct TEXT[] := ARRAY[]::TEXT[];
+  v_answer_index INTEGER := 1;
+  v_points_earned INTEGER := 0;
 BEGIN
-  SELECT player_ids INTO v_player_ids
-  FROM questions
-  WHERE id = p_question_id;
-  
-  v_correct := ARRAY[]::TEXT[];
-  
-  FOREACH v_user_answer IN ARRAY p_user_answers
+  -- Parcourir les réponses dans l'ordre du classement (ranking)
+  FOR v_answer IN 
+    SELECT qa.*, p.name as player_name
+    FROM question_answers qa
+    INNER JOIN players p ON qa.player_id = p.id
+    WHERE qa.question_id = p_question_id 
+    AND qa.is_active = true 
+    AND qa.player_id IS NOT NULL
+    AND qa.ranking IS NOT NULL
+    ORDER BY qa.ranking ASC
   LOOP
-    v_normalized := LOWER(TRIM(v_user_answer));
-    
-    FOR v_player IN 
-      SELECT p.id, p.name
-      FROM players p
-      WHERE p.id = ANY(v_player_ids)
-        AND (
-          LOWER(p.name) = v_normalized
-          OR v_normalized = ANY(
-            SELECT LOWER(unnest(p.name_variations))
-          )
-        )
-    LOOP
-      v_correct := array_append(v_correct, v_player.name);
-      EXIT;
-    END LOOP;
+    -- Récupérer la réponse utilisateur correspondante à ce rang
+    IF v_answer_index <= array_length(p_user_answers, 1) THEN
+      v_user_answer := p_user_answers[v_answer_index];
+      v_normalized := LOWER(TRIM(v_user_answer));
+      
+      -- Vérifier si la réponse correspond au nom du joueur (normalisé)
+      -- La normalisation doit être cohérente avec celle utilisée côté application
+      IF LOWER(TRIM(v_answer.player_name)) = v_normalized OR
+         EXISTS (
+           SELECT 1 FROM unnest(ARRAY[v_answer.player_name]) as name_var
+           WHERE LOWER(TRIM(name_var)) = v_normalized
+         ) THEN
+        v_correct := array_append(v_correct, v_answer.player_name);
+        -- Les points sont attribués selon le rang (ex: rang 1 = 100, rang 2 = 90, etc.)
+        v_points_earned := v_points_earned + COALESCE(v_answer.points, 0);
+      END IF;
+      
+      v_answer_index := v_answer_index + 1;
+    END IF;
   END LOOP;
   
   RETURN QUERY SELECT
     array_length(v_correct, 1),
     v_correct,
-    array_length(v_correct, 1) * 10;
+    v_points_earned; -- Score total basé sur les points des réponses correctes
 END;
 $ LANGUAGE plpgsql;
 ```
 
-**Usage** : Appelée côté app pour calculer le score du joueur.
+**Usage** : Appelée côté app pour calculer le score du joueur. Utilise la table `question_answers` avec les champs `player_id`, `ranking`, et `points`.
 
 ---
 
-#### 3.4.5 Validation Réponse GRILLE
+#### 3.4.5 Validation Réponse LOGO SNIPER
 
 ```sql
-CREATE OR REPLACE FUNCTION validate_grid_answer(
+CREATE OR REPLACE FUNCTION validate_logo_sniper_answer(
   p_question_id UUID,
-  p_user_grid JSONB
+  p_user_answers TEXT[], -- Tableau des réponses dans l'ordre des logos
+  p_time_remaining INTEGER DEFAULT 0 -- Secondes restantes pour bonus temps
 )
 RETURNS TABLE(
   correct_count INTEGER,
-  correct_answers JSONB,
-  incorrect_answers JSONB,
-  score INTEGER
+  total_logos INTEGER,
+  correct_answers TEXT[],
+  score INTEGER,
+  cerises_earned INTEGER,
+  streak_bonus INTEGER,
+  time_bonus INTEGER
 ) AS $
 DECLARE
-  v_content JSONB;
-  v_grid_id TEXT;
-  v_cell_key TEXT;
+  v_answer RECORD;
   v_user_answer TEXT;
-  v_league TEXT;
-  v_country TEXT;
-  v_is_valid BOOLEAN;
-  v_correct JSONB := '{}'::JSONB;
-  v_incorrect JSONB := '{}'::JSONB;
+  v_user_answer_normalized TEXT;
+  v_is_correct BOOLEAN;
+  v_correct_answers TEXT[] := ARRAY[]::TEXT[];
   v_correct_count INTEGER := 0;
+  v_total_logos INTEGER;
+  v_cerises_base INTEGER := 150;
+  v_cerises_penalty INTEGER := 0;
+  v_streak_count INTEGER := 0;
+  v_streak_bonus INTEGER := 0;
+  v_time_bonus INTEGER := 0;
+  v_answer_index INTEGER := 1;
 BEGIN
-  SELECT content->>'grid_id' INTO v_grid_id
-  FROM questions
-  WHERE id = p_question_id;
-  
-  FOR v_cell_key, v_user_answer IN SELECT * FROM jsonb_each_text(p_user_grid)
+  -- Compter le nombre total de logos pour cette question
+  SELECT COUNT(*) INTO v_total_logos
+  FROM question_answers qa
+  WHERE qa.question_id = p_question_id
+  AND qa.is_active = true
+  AND qa.club_id IS NOT NULL; -- Les logos Logo Sniper ont un club_id
+
+  -- Parcourir les réponses dans l'ordre d'affichage (avec jointure vers clubs)
+  FOR v_answer IN
+    SELECT qa.*, c.name as club_name, c.name_variations as club_variations
+    FROM question_answers qa
+    INNER JOIN clubs c ON qa.club_id = c.id
+    WHERE qa.question_id = p_question_id
+    AND qa.is_active = true
+    AND qa.club_id IS NOT NULL
+    ORDER BY qa.display_order, qa.id -- Ordre d'affichage
   LOOP
-    v_league := split_part(v_cell_key, '_', 1);
-    v_country := split_part(v_cell_key, '_', 2);
-    
-    SELECT EXISTS(
-      SELECT 1 
-      FROM grid_answers ga
-      JOIN players p ON ga.player_id = p.id
-      WHERE ga.grid_id = v_grid_id
-        AND ga.league = v_league
-        AND ga.country = v_country
-        AND (
-          LOWER(p.name) = LOWER(TRIM(v_user_answer))
-          OR LOWER(TRIM(v_user_answer)) = ANY(
-            SELECT LOWER(unnest(p.name_variations))
-          )
-        )
-    ) INTO v_is_valid;
-    
-    IF v_is_valid THEN
-      v_correct := v_correct || jsonb_build_object(v_cell_key, v_user_answer);
-      v_correct_count := v_correct_count + 1;
-    ELSE
-      v_incorrect := v_incorrect || jsonb_build_object(v_cell_key, v_user_answer);
+    -- Récupérer la réponse utilisateur correspondante
+    IF v_answer_index <= array_length(p_user_answers, 1) THEN
+      v_user_answer := p_user_answers[v_answer_index];
+      v_user_answer_normalized := LOWER(TRIM(v_user_answer));
+
+      -- Vérifier si la réponse correspond au nom du club ou à ses variantes
+      v_is_correct := (
+        LOWER(TRIM(v_answer.club_name)) = v_user_answer_normalized
+        OR (v_answer.club_variations IS NOT NULL AND v_user_answer_normalized = ANY(
+          SELECT LOWER(TRIM(unnest(v_answer.club_variations)))
+        ))
+      );
+
+      IF v_is_correct THEN
+        v_correct_count := v_correct_count + 1;
+        v_correct_answers := array_append(v_correct_answers, v_answer.club_name);
+        v_streak_count := v_streak_count + 1;
+      ELSE
+        v_cerises_penalty := v_cerises_penalty + 10;
+        v_streak_count := 0;
+      END IF;
+
+      v_answer_index := v_answer_index + 1;
     END IF;
   END LOOP;
   
+  -- Calculer les bonus de streak
+  IF v_streak_count >= 20 THEN
+    v_streak_bonus := 15;
+  ELSIF v_streak_count >= 15 THEN
+    v_streak_bonus := 15;
+  ELSIF v_streak_count >= 10 THEN
+    v_streak_bonus := 10;
+  ELSIF v_streak_count >= 5 THEN
+    v_streak_bonus := 10;
+  END IF;
+  
+  -- Bonus temps (1 cerise par seconde restante)
+  v_time_bonus := GREATEST(0, p_time_remaining);
+  
   RETURN QUERY SELECT
     v_correct_count,
-    v_correct,
-    v_incorrect,
-    v_correct_count * 10;
+    v_total_logos,
+    v_correct_answers,
+    v_correct_count * 10, -- Score (10 points par logo correct)
+    GREATEST(0, LEAST(200, v_cerises_base - v_cerises_penalty + v_streak_bonus + v_time_bonus)), -- Cerises (max 200)
+    v_streak_bonus,
+    v_time_bonus;
 END;
 $ LANGUAGE plpgsql;
 ```
 
+**Usage** : Appelée côté app pour calculer le score et les cerises gagnées du joueur dans Logo Sniper. Utilise la table `question_answers` avec jointure vers `clubs` pour récupérer `name`, `name_variations`, et `logo_url`.
+
 ---
 
-#### 3.4.6 Validation Réponse CLUB
+#### 3.4.6 Validation Réponse CLUB ACTUEL
 
 ```sql
-CREATE OR REPLACE FUNCTION validate_club_answers(
+CREATE OR REPLACE FUNCTION validate_club_actuel_answers(
   p_question_id UUID,
-  p_user_answers JSONB
+  p_user_answers JSONB -- Format: {"player_name": "club_name", ...}
 )
 RETURNS TABLE(
   correct_count INTEGER,
@@ -963,36 +1133,44 @@ RETURNS TABLE(
   score INTEGER
 ) AS $
 DECLARE
-  v_player_ids UUID[];
-  v_player RECORD;
+  v_answer RECORD;
   v_user_club TEXT;
   v_is_correct BOOLEAN;
   v_correct JSONB := '{}'::JSONB;
   v_correct_count INTEGER := 0;
   v_total INTEGER;
 BEGIN
-  SELECT player_ids INTO v_player_ids
-  FROM questions
-  WHERE id = p_question_id;
+  -- Compter le nombre total de joueurs pour cette question
+  SELECT COUNT(*) INTO v_total
+  FROM question_answers qa
+  WHERE qa.question_id = p_question_id 
+  AND qa.is_active = true 
+  AND qa.player_id IS NOT NULL; -- Les réponses CLUB ACTUEL ont un player_id
   
-  v_total := array_length(v_player_ids, 1);
-  
-  FOR v_player IN 
-    SELECT p.id, p.name, p.current_club
-    FROM players p
-    WHERE p.id = ANY(v_player_ids)
+  -- Parcourir les réponses dans l'ordre d'affichage
+  FOR v_answer IN 
+    SELECT qa.*, p.name as player_name, p.current_club
+    FROM question_answers qa
+    INNER JOIN players p ON qa.player_id = p.id
+    WHERE qa.question_id = p_question_id 
+    AND qa.is_active = true 
+    AND qa.player_id IS NOT NULL
+    ORDER BY qa.display_order, qa.id
   LOOP
-    v_user_club := p_user_answers->>v_player.name;
+    -- Récupérer la réponse utilisateur pour ce joueur
+    v_user_club := p_user_answers->>v_answer.player_name;
     
     IF v_user_club IS NOT NULL THEN
-      v_is_correct := LOWER(TRIM(v_user_club)) = LOWER(v_player.current_club);
+      -- Vérifier si la réponse correspond au club actuel du joueur
+      v_is_correct := LOWER(TRIM(v_user_club)) = LOWER(TRIM(v_answer.current_club));
       
       IF v_is_correct THEN
         v_correct := v_correct || jsonb_build_object(
-          v_player.name, 
+          v_answer.player_name, 
           jsonb_build_object(
             'user_answer', v_user_club,
-            'correct_club', v_player.current_club
+            'correct_club', v_answer.current_club,
+            'player_id', v_answer.player_id
           )
         );
         v_correct_count := v_correct_count + 1;
@@ -1004,10 +1182,12 @@ BEGIN
     v_correct_count,
     v_total,
     v_correct,
-    v_correct_count * 10;
+    v_correct_count * 10; -- Score : 10 points par bonne réponse
 END;
 $ LANGUAGE plpgsql;
 ```
+
+**Usage** : Appelée côté app pour calculer le score du joueur dans Club Actuel. Utilise la table `question_answers` avec les champs `player_id`, `display_order`, et la jointure avec `players.current_club`.
 
 ---
 
@@ -1085,6 +1265,99 @@ CREATE TRIGGER trigger_players_search_vector
 
 ---
 
+#### 3.5.4 Mise à Jour Automatique des Statuts et Classements des Défis
+
+```sql
+CREATE OR REPLACE FUNCTION update_challenge_status_and_rank()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_challenge_id UUID;
+  v_total_participants INTEGER;
+  v_completed_participants INTEGER;
+  v_min_participants INTEGER;
+  v_challenge_status VARCHAR(20);
+  v_winner_ids TEXT;
+BEGIN
+  -- Récupérer l'ID du défi
+  IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
+    v_challenge_id := NEW.challenge_id;
+  ELSE
+    v_challenge_id := OLD.challenge_id;
+  END IF;
+
+  -- Récupérer le nombre minimum de participants requis
+  SELECT min_participants INTO v_min_participants
+  FROM challenges
+  WHERE id = v_challenge_id;
+
+  -- Compter les participants actifs et terminés
+  SELECT
+    COUNT(cp.id),
+    COUNT(CASE WHEN cp.status = 'completed' THEN 1 END)
+  INTO
+    v_total_participants,
+    v_completed_participants
+  FROM challenge_participants cp
+  WHERE cp.challenge_id = v_challenge_id
+  AND cp.status IN ('pending', 'active', 'completed');
+
+  -- Mettre à jour le statut du défi
+  IF v_completed_participants >= v_total_participants AND v_total_participants >= v_min_participants THEN
+    v_challenge_status := 'completed';
+  ELSIF v_completed_participants > 0 THEN
+    v_challenge_status := 'in_progress';
+  ELSE
+    v_challenge_status := 'pending';
+  END IF;
+
+  -- Calculer les classements
+  WITH ranked_participants AS (
+    SELECT
+      cp.user_id,
+      cp.score,
+      RANK() OVER (ORDER BY cp.score DESC, cp.time_taken ASC) as calculated_rank
+    FROM challenge_participants cp
+    WHERE cp.challenge_id = v_challenge_id
+    AND cp.status = 'completed'
+  )
+  UPDATE challenge_participants cp_update
+  SET rank = rp.calculated_rank
+  FROM ranked_participants rp
+  WHERE cp_update.challenge_id = v_challenge_id 
+  AND cp_update.user_id = rp.user_id;
+
+  -- Déterminer les gagnants (peut être plusieurs en cas d'égalité)
+  SELECT string_agg(user_id::text, ',')
+  INTO v_winner_ids
+  FROM challenge_participants
+  WHERE challenge_id = v_challenge_id AND rank = 1;
+
+  -- Mettre à jour la table challenges
+  UPDATE challenges
+  SET
+    status = v_challenge_status,
+    completed_at = CASE WHEN v_challenge_status = 'completed' AND completed_at IS NULL THEN NOW() ELSE completed_at END,
+    winner_ids = v_winner_ids
+  WHERE id = v_challenge_id;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER trg_update_challenge_status_and_rank
+AFTER INSERT OR UPDATE ON challenge_participants
+FOR EACH ROW EXECUTE FUNCTION update_challenge_status_and_rank();
+```
+
+**Fonctionnalités** :
+- Déclenchement automatique à chaque insertion/mise à jour dans `challenge_participants`
+- Calcul du statut du défi selon le nombre de participants ayant terminé (`pending` → `in_progress` → `completed`)
+- Calcul automatique du classement basé sur le score (DESC) puis le temps (ASC) en cas d'égalité
+- Identification des gagnants (peut être plusieurs en cas d'égalité au 1er rang)
+- Mise à jour automatique de `completed_at` et `winner_ids` dans la table `challenges`
+
+---
+
 ## 4. Fonctionnalités Admin
 
 ### 4.1 Interface de Gestion des Joueurs
@@ -1123,7 +1396,7 @@ Historique des clubs (JSONB)
 **Écran** : `AdminQuestionsScreen`
 
 **Fonctionnalités** :
-- **Liste des questions** par type (TOP10, GRILLE, CLUB)
+- **Liste des questions** par type (TOP10, LOGO_SNIPER, CLUB_ACTUEL, CARRIERE_INFERNALE)
 - **Création de question** : Formulaire adapté selon le type
 - **Modification** : Édition des questions existantes
 - **Archivage** : Archiver une question (is_archived = true)
@@ -1132,7 +1405,7 @@ Historique des clubs (JSONB)
 **Formulaire Création Question** :
 ```
 Type de jeu *
-[TOP10 ▼] (TOP10, GRILLE, CLUB)
+[TOP10 ▼] (TOP10, LOGO_SNIPER, CLUB_ACTUEL, CARRIERE_INFERNALE)
 
 Titre de la question *
 [Top 10 des meilleurs buteurs de Ligue 1 2024-2025]
@@ -1149,41 +1422,107 @@ Sélection des joueurs
 [Créer la Question]
 ```
 
-### 4.3 Interface de Gestion des Réponses GRILLE
+### 4.3 Interface de Gestion des Réponses aux Questions
 
-**Écran** : `AdminGridAnswersScreen`
+**Écran** : `AdminQuestionAnswersScreen`
 
 **Fonctionnalités** :
-- **Sélection de la question GRILLE** : Liste déroulante
-- **Grille interactive** : Interface 3x3 pour définir les réponses valides
-- **Ajout de réponse** : Par case (ligue + pays + joueur)
-- **Modification** : Changer les réponses valides
-- **Archivage** : Archiver avec la question
+- **Gestion unifiée** : Interface unique pour gérer les réponses de tous les types de jeux via la table `question_answers`
+- **Adaptation selon le type** : L'interface s'adapte selon le `game_type` de la question sélectionnée
 
-**Interface Grille** :
+**Pour LOGO SNIPER** :
+- **Sélection de la question** : Liste déroulante des questions de type LOGO_SNIPER
+- **Sélection des clubs** : Interface pour choisir 20 clubs parmi la base `clubs`
+- **Ordre d'affichage** : Définir l'ordre de présentation des logos (display_order 1-20)
+- **Note** : Les clubs sont gérés séparément dans la section "Gestion des Clubs" (voir ci-dessous)
+
+**Pour TOP10** :
+- **Sélection des joueurs** : Interface pour choisir les 10 joueurs dans l'ordre
+- **Attribution des rangs** : Position et points automatiques selon le classement
+
+**Pour CLUB ACTUEL** :
+- **Sélection des joueurs** : Interface pour choisir les joueurs à deviner
+- **Ordre d'affichage** : Définir l'ordre de présentation des joueurs
+
+**Interface unifiée** :
 ```
-Question: Grille 3x3 : Ligue 1, Premier League, La Liga / France, Brésil, Argentine
+Question: [Clubs européens mythiques ▼] (LOGO_SNIPER)
 
-          Ligue 1   Premier League   La Liga
-France    [Kylian Mbappé] [N'Golo Kanté] [_____]
-Brésil    [_____]         [_____]       [Vinícius Júnior]
-Argentine [_____]         [_____]       [_____]
+Type: LOGO SNIPER
 
-[Enregistrer les Réponses]
+┌─────────────────────────────────────────────┐
+│  Logo: [IMAGE] Real Madrid                  │
+│  Réponse: [Real Madrid________]             │
+│  Noms alternatifs: [Real Madrid CF, Real]   │
+│  Ordre: [1]                                  │
+│  [Modifier] [Supprimer]                     │
+└─────────────────────────────────────────────┘
+
+[Ajouter une réponse] [Enregistrer]
 ```
 
-**Flux d'ajout de réponse** :
-1. Clic sur une case vide
-2. Recherche de joueur (autocomplétion)
-3. Sélection du joueur
-4. Validation et ajout à la case
+**Flux d'ajout de réponse (LOGO SNIPER)** :
+1. Clic sur "Ajouter un club"
+2. Recherche/autocomplétion parmi les clubs de la base `clubs`
+3. Sélection du club (qui contient déjà logo_url, name, name_variations)
+4. Définition de l'ordre d'affichage (display_order)
+5. Validation et ajout dans `question_answers` avec `club_id` et `display_order`
+6. Répéter jusqu'à atteindre 20 clubs
 
-### 4.4 Interface de Gestion des Jeux
+### 4.4 Interface de Gestion des Clubs (Base de Référence Logo Sniper)
+
+**Écran** : `AdminClubsScreen`
+
+**Fonctionnalités** :
+- **Gestion centralisée** : Interface pour gérer tous les clubs et sélections nationales
+- **Création/Modification** : Ajouter, modifier, archiver des clubs
+- **Upload de logos** : Téléchargement des images de logos vers Supabase Storage
+- **Noms alternatifs** : Gestion des variantes acceptées pour chaque club
+- **Filtres** : Par type (CLUB / NATIONAL_TEAM), pays, ligue
+- **Recherche** : Recherche rapide par nom
+
+**Interface** :
+```
+┌──────────────────────────────────────┐
+│  🏆 Gestion des Clubs                │
+│                                      │
+│  Type: [Tous ▼] | Pays: [Tous ▼]    │
+│  Recherche: [________________]      │
+│                                      │
+│  ┌─────────────────────────────────┐ │
+│  │  [LOGO] Real Madrid              │ │
+│  │  Type: CLUB | Pays: ESP          │ │
+│  │  Ligue: La Liga                  │ │
+│  │  Variantes: Real Madrid CF, Real │ │
+│  │  [Modifier] [Archiver]          │ │
+│  └─────────────────────────────────┘ │
+│                                      │
+│  [Créer un club] [Import CSV]        │
+└──────────────────────────────────────┘
+```
+
+**Flux de création d'un club** :
+1. Clic sur "Créer un club"
+2. Upload de l'image du logo (obligatoire)
+3. Saisie du nom principal (obligatoire, unique)
+4. Sélection du type (CLUB ou NATIONAL_TEAM)
+5. Ajout du pays et de la ligue (si club)
+6. Ajout des noms alternatifs (optionnel)
+7. Validation et insertion dans `clubs`
+
+**Flux de modification** :
+1. Clic sur "Modifier" d'un club
+2. Modification possible : nom, logo, variantes, pays, ligue
+3. Sauvegarde des changements
+
+---
+
+### 4.5 Interface de Gestion des Jeux
 
 **Écran** : `AdminGamesScreen`
 
 **Fonctionnalités** :
-- **Liste des jeux** : TOP10, GRILLE, CLUB avec statut
+- **Liste des jeux** : TOP10, LOGO_SNIPER, CLUB_ACTUEL, CARRIERE_INFERNALE avec statut
 - **Création de jeu** : Formulaire pour nouveau jeu
 - **Modification** : Édition des jeux existants
 - **Suppression** : Suppression avec confirmation
@@ -1202,9 +1541,16 @@ Argentine [_____]         [_____]       [_____]
 │  └─────────────────────────────────┘ │
 │                                      │
 │  ┌─────────────────────────────────┐ │
-│  │  GRILLE 3x3                     │ │
-│  │  Statut: ❌ Inactif              │ │
-│  │  Prix: 75 cerises                │ │
+│  │  LOGO SNIPER                    │ │
+│  │  Statut: 🔜 En développement     │ │
+│  │  Prix: [À définir] cerises       │ │
+│  │  [Modifier] [Supprimer]         │ │
+│  └─────────────────────────────────┘ │
+│                                      │
+│  ┌─────────────────────────────────┐ │
+│  │  CLUB ACTUEL                    │ │
+│  │  Statut: 🔜 En développement     │ │
+│  │  Prix: [À définir] cerises       │ │
 │  │  [Modifier] [Supprimer]         │ │
 │  └─────────────────────────────────┘ │
 │                                      │
@@ -1229,7 +1575,7 @@ Statut
 [Enregistrer] [Annuler]
 ```
 
-### 4.5 Interface de Gestion des Joueurs (Détaillée)
+### 4.6 Interface de Gestion des Joueurs (Détaillée)
 
 **Écran** : `AdminPlayersScreen`
 
@@ -1296,9 +1642,9 @@ Statut
 │  └─────────────────────────────────┘ │
 │                                      │
 │  ┌─────────────────────────────────┐ │
-│  │  GRILLE • 2024-2025             │ │
-│  │  Grille 3x3 : Ligue 1, PL...    │ │
-│  │  ❌ Inactif • 5 utilisations     │ │
+│  │  LOGO_SNIPER • 2024-2025        │ │
+│  │  Clubs européens mythiques      │ │
+│  │  🔜 En développement            │ │
 │  │  [Modifier] [Dupliquer] [Archiver]│ │
 │  └─────────────────────────────────┘ │
 │                                      │
@@ -1306,40 +1652,86 @@ Statut
 └──────────────────────────────────────┘
 ```
 
-### 4.7 Interface de Gestion des Réponses GRILLE (Détaillée)
+### 4.7 Interface de Gestion des Réponses aux Questions (Détaillée)
 
-**Écran** : `AdminGridAnswersScreen`
+**Écran** : `AdminQuestionAnswersScreen`
 
 **Fonctionnalités avancées** :
-- **Sélection question** : Liste déroulante avec filtres
-- **Grille interactive** : Interface 3x3 avec drag & drop
-- **Réponses multiples** : Plusieurs joueurs par case
-- **Validation** : Vérification des réponses valides
-- **Export** : Export des réponses en CSV
+- **Gestion unifiée** : Interface unique pour tous les types de jeux via `question_answers`
+- **Adaptation contextuelle** : L'interface change selon le type de question sélectionné
+- **Bibliothèque de réponses** : Base de données centralisée avec recherche et organisation
+- **Validation** : Vérification de la cohérence des réponses selon le type de jeu
+- **Export** : Export des réponses en format structuré (CSV, JSON)
+- **Statistiques** : Taux de réussite par réponse, difficulté perçue
 
-**Interface Grille Avancée** :
+**Interface Avancée pour LOGO SNIPER** :
 ```
 ┌──────────────────────────────────────┐
-│  🎯 Gestion des Réponses GRILLE     │
+│  🎯 Gestion des Réponses              │
 │                                      │
-│  Question: [Grille 3x3 : Ligue 1...]│
+│  Question: [Clubs européens mythiques ▼]│
+│  Type: LOGO_SNIPER                   │
 │                                      │
-│          Ligue 1   Premier League   La Liga
-│  France    [Kylian Mbappé] [N'Golo Kanté] [_____]
-│           [Wissam Ben Yedder] [_____]    [_____]
-│  Brésil    [_____]         [_____]       [Vinícius Júnior]
-│  Argentine [_____]         [_____]       [_____]
+│  ┌─────────────────────────────────┐ │
+│  │  [LOGO] Real Madrid              │ │
+│  │  Réponse principale: Real Madrid  │ │
+│  │  Réponses valides:               │ │
+│  │  - Real Madrid                   │ │
+│  │  - Real Madrid CF                │ │
+│  │  - Real                           │ │
+│  │  Ordre: 1                         │ │
+│  │  [Modifier] [Supprimer]         │ │
+│  └─────────────────────────────────┘ │
 │                                      │
 │  [Ajouter réponse] [Valider] [Export]│
 └──────────────────────────────────────┘
 ```
 
-**Flux d'ajout de réponse avancé** :
-1. **Sélection case** : Clic sur case vide ou existante
-2. **Recherche joueur** : Autocomplétion avec filtres (club, nationalité)
-3. **Sélection** : Choix du joueur
-4. **Validation** : Vérification que le joueur correspond aux critères
-5. **Ajout** : Ajout à la case avec possibilité de plusieurs joueurs
+**Interface Avancée pour TOP10** :
+```
+┌──────────────────────────────────────┐
+│  🎯 Gestion des Réponses              │
+│                                      │
+│  Question: [Top 10 buteurs L1 24-25 ▼]│
+│  Type: TOP10                        │
+│                                      │
+│  ┌─────────────────────────────────┐ │
+│  │  Rang 1: Kylian Mbappé          │ │
+│  │  Points: 100                     │ │
+│  │  [Modifier] [Supprimer]         │ │
+│  └─────────────────────────────────┘ │
+│  ┌─────────────────────────────────┐ │
+│  │  Rang 2: Wissam Ben Yedder      │ │
+│  │  Points: 90                      │ │
+│  │  [Modifier] [Supprimer]         │ │
+│  └─────────────────────────────────┘ │
+│                                      │
+│  [Ajouter joueur] [Valider] [Export] │
+└──────────────────────────────────────┘
+```
+
+**Flux d'ajout de réponse (selon type)** :
+
+**LOGO SNIPER** :
+1. **Sélection question** : Choisir une question de type LOGO_SNIPER (ou créer une nouvelle question)
+2. **Recherche club** : Autocomplétion pour trouver un club dans la base `clubs`
+3. **Sélection club** : Choisir parmi les clubs existants (logo, nom, variantes déjà définis)
+4. **Ordre d'affichage** : Définir `display_order` (1-20)
+5. **Ajout** : Insertion dans `question_answers` avec `club_id` et `display_order`
+6. **Répéter** : Jusqu'à 20 clubs sélectionnés
+
+**TOP10** :
+1. **Sélection question** : Choisir une question de type TOP10
+2. **Recherche joueur** : Autocomplétion pour trouver le joueur
+3. **Attribution rang** : Définir `ranking` (1-10)
+4. **Calcul points** : Points automatiques selon le rang dans `points`
+5. **Ajout** : Insertion dans `question_answers` avec `player_id`, `ranking`, `points`
+
+**CLUB ACTUEL** :
+1. **Sélection question** : Choisir une question de type CLUB_ACTUEL
+2. **Recherche joueur** : Autocomplétion pour trouver le joueur
+3. **Ordre d'affichage** : Définir `display_order`
+4. **Ajout** : Insertion dans `question_answers` avec `player_id`, `display_order`
 
 ---
 
@@ -1437,14 +1829,15 @@ const registerSchema = z.object({
 **C. Statistiques Détaillées**
 - Parties jouées (total)
   - Solo : 45
-  - Multijoueur : 12
+  - Défi : 12
   - Ligues : 23
 - Victoires : 15
 - Taux de victoire : 34%
 - Meilleur score :
   - TOP10 : 90/100
-  - GRILLE : 80/90
-  - CLUB : 120/150
+  - LOGO SNIPER : [À venir]
+  - CLUB ACTUEL : [À venir]
+  - CARRIÈRE INFERNALE : [À venir]
 
 **API Call** :
 ```typescript
@@ -1457,8 +1850,8 @@ const { data: user } = await supabase
 
 // Récupérer stats
 const { data: stats } = await supabase
-  .from('match_participants')
-  .select('score, completed_at, matches(mode, game_type_id)')
+  .from('challenge_participants')
+  .select('score, completed_at, time_taken, rank, challenges(game_type, status)')
   .eq('user_id', userId)
   .eq('status', 'completed');
 ```
@@ -1521,14 +1914,17 @@ const uploadAvatar = async (file: File) => {
 - Logo CLAFOOTIX (centre)
 - Icône profil (droite)
 
-**B. Grille de Jeux (2×2)**
+**B. Grille de Jeux**
 ```
 ┌──────────────┬──────────────┐
-│   TOP 10     │   GRILLE     │
+│   TOP 10     │ LOGO SNIPER  │
 ├──────────────┼──────────────┤
-│    CLUB      │ COMING SOON  │
+│ CLUB ACTUEL  │ CARRIÈRE     │
+│              │ INFERNALE    │
 └──────────────┴──────────────┘
 ```
+
+*Note : Seul TOP 10 est actif actuellement. Les autres jeux sont en développement.*
 
 **C. Bouton Flottant (Ballon)**
 - Position : Bas centre
@@ -1540,8 +1936,9 @@ const uploadAvatar = async (file: File) => {
 
 **Navigation** :
 - Clic TOP10 → `GameSelectionScreen` (game_type='TOP10')
-- Clic GRILLE → `GameSelectionScreen` (game_type='GRILLE')
-- Clic CLUB → `GameSelectionScreen` (game_type='CLUB')
+- Clic LOGO SNIPER → `GameSelectionScreen` (game_type='LOGO_SNIPER') *[En développement]*
+- Clic CLUB ACTUEL → `GameSelectionScreen` (game_type='CLUB_ACTUEL') *[En développement]*
+- Clic CARRIÈRE INFERNALE → `GameSelectionScreen` (game_type='CARRIERE_INFERNALE') *[En développement]*
 - Clic Profil → `ProfileScreen`
 - Clic "Acheter des jeux" → `BuyGamesScreen`
 
@@ -1568,14 +1965,15 @@ REGLES DU JEU
 ```
 ┌──────────┐  ┌──────────┐  ┌──────────┐
 │   👤     │  │  👥👥   │  │  🏆     │
-│   SOLO   │  │MULTIJOUEUR│  │  LIGUE  │
+│   SOLO   │  │   DÉFI   │  │  LIGUE  │
 └──────────┘  └──────────┘  └──────────┘
 ```
 
 **Descriptions** :
 - **TOP10** : "Trouve les 10 meilleurs buteurs de Ligue 1"
-- **GRILLE** : "Remplis la grille 3×3 en trouvant un joueur par case"
-- **CLUB** : "Devine le club actuel des joueurs présentés"
+- **LOGO SNIPER** : "Identifie rapidement les logos de clubs et sélections apparaissant successivement"
+- **CLUB ACTUEL** : "Devine le club actuel des joueurs présentés"
+- **CARRIÈRE INFERNALE** : [Description à venir]
 
 **Flux** :
 
@@ -1584,13 +1982,14 @@ REGLES DU JEU
 2. Création partie immédiate
 3. Navigation vers `GamePlayScreen`
 
-**Mode MULTIJOUEUR** :
-1. Clic "MULTIJOUEUR"
-2. Navigation vers `CreateMultiplayerScreen`
-3. Sélection amis (2-15)
-4. Envoi invitations
-5. Attente acceptations
-6. Partie lancée quand tous ont accepté
+**Mode DÉFI** :
+1. Clic "DÉFI"
+2. Navigation vers l'écran de sélection des amis
+3. Sélection amis (2 à N)
+4. Sélection de la question
+5. Création du défi et envoi invitations
+6. Les participants jouent la question imposée par le créateur
+7. Classement automatique à la fin
 
 **Mode LIGUE** :
 1. Clic "LIGUE"
@@ -1604,7 +2003,9 @@ REGLES DU JEU
 
 **Écran** : `GamePlayScreen`
 
-**Props** : `match_id`
+**Props** : 
+- Mode Solo : `question_id` (optionnel, question aléatoire si non fourni)
+- Mode Défi : `challenge_id` (requis, la question est imposée par le créateur)
 
 #### 4.5.1 Layout Commun (tous jeux)
 
@@ -1646,39 +2047,117 @@ Score: 1/10
 
 **Fin de partie** :
 - Timer à 0 OU 10 joueurs trouvés
-- Appel `validate_top10_answer()`
-- Calcul score final
+- Appel `validate_top10_answer()` avec la question_id
+- La fonction utilise `question_answers` pour récupérer les joueurs avec leur `ranking` et `points`
+- Calcul score final basé sur les points des réponses correctes
 - Navigation vers `GameResultsScreen`
+
+**Stockage des données** :
+- Les 10 joueurs et leur classement sont stockés dans la table `question_answers`
+- Chaque joueur = 1 enregistrement avec `player_id`, `ranking` (1-10), `points` (100, 90, 80...)
+
+**Fonctionnalités spécifiques au Mode Défi** :
+- La question est **imposée** par le créateur du défi
+- Le sélecteur de question est **désactivé** pour les participants invités
+- Affichage d'un message "Défi imposé" pour indiquer que la question ne peut pas être changée
+- Tous les participants jouent la même question choisie par le créateur
+- Le score et le temps sont enregistrés automatiquement à la fin
+- Le classement est mis à jour automatiquement (via trigger PostgreSQL)
 
 ---
 
-#### 4.5.3 GRILLE - Interface
+#### 4.5.3 LOGO SNIPER - Interface
 
 **Zone centrale** :
 ```
-Grille 3×3
+┌─────────────────────────────────────┐
+│                                     │
+│         [LOGO DU CLUB]              │
+│         (effet zoom + flash)         │
+│                                     │
+└─────────────────────────────────────┘
 
-          Ligue 1   Premier League   La Liga
-France    [_____]      [_____]       [_____]
-Brésil    [_____]      [_____]       [_____]
-Argentine [_____]      [_____]       [_____]
+┌─────────────────────────────────────┐
+│  [Nom du club/sélection________]    │
+│  (autocomplétion active)            │
+└─────────────────────────────────────┘
 
-Cases remplies: 3/9
+Barre de progression: [████████░░] 15/20
+Chronomètre: ⏱️ 45s restantes
 ```
 
 **Fonctionnalités** :
-- Autocomplétion avec filtres (ligue + pays)
-- Validation immédiate par case
-- Indication visuelle (vert = correct, rouge = incorrect)
+- Logo apparaît successivement au centre de l'écran
+- Effet "sniper" : zoom rapide sur le logo, curseur rouge pulsant
+- Champ de saisie avec autocomplétion pour nom du club/sélection
+- Validation instantanée à chaque réponse
+- Passage automatique au logo suivant
+- Effet de flash entre chaque logo
+
+**Ambiance visuelle** :
+- Fond bleu électrique
+- Flash lumineux à chaque logo
+- Effet "sniper" : zoom rapide, curseur rouge pulsant
+- Chrono visible façon viseur digital
+
+**Système de points & Feedback** :
+- **Barème des cerises** :
+  - 20 logos = 150 cerises de base
+  - Mauvaise réponse = -10 cerises
+  
+- **Bonus streaks** :
+  - 5 logos consécutifs → +10 cerises
+  - 10 logos consécutifs → +10 cerises
+  - 15 logos consécutifs → +15 cerises
+  - 20 logos consécutifs → +15 cerises
+  - **Maximum : 200 cerises** (150 base + 50 bonus)
+  
+- **Bonus temps** :
+  - +1 cerise par seconde restante
+
+**Feedback visuel** :
+- **Bonne réponse** : halo doré autour du logo
+- **Mauvaise réponse** : flash rouge + écran qui tremble
+- **Série parfaite** : effet "slow motion" + explosion de cerises
+
+**Feedback sonore** :
+- **Bonne réponse** : clic sec + "pling" métallique
+- **Mauvaise réponse** : son d'erreur digital
+- **Série parfaite** : jingle Clafootix + applaudissements massifs
+
+**Messages finaux** :
+- **20/20** : "Sniper d'élite ! T'as visé juste à chaque tir ! 🎯🍒"
+- **15-19** : "Belle précision, encore un tir et c'était parfait !"
+- **10-14** : "Bon tir, mais t'as touché les montants plus que les filets."
+- **0-9** : "T'as tiré dans les tribunes tout le match…"
+
+**Effets finaux** :
+- **Score parfait (20/20)** : explosion dorée + ralenti du dernier logo + fanfare Clafootix + cri du speaker "Bingo parfait !"
+- **Score intermédiaire (10-19)** : effets lumineux rapides + applaudissements rythmés
+- **Faible score (0-9)** : fond sombre, flashs désynchronisés + sifflets et rires du public
+
+**Thématiques disponibles** :
+- "Clubs européens mythiques"
+- "Coupes du monde et sélections nationales"
+- "Logos rétro 80s–2000s"
+
+**Stockage des données** :
+- Les clubs (logos et noms) sont stockés dans la table `clubs` (base de référence)
+- Les questions Logo Sniper référencent 20 clubs via `question_answers.club_id`
+- Chaque réponse Logo Sniper = 1 enregistrement dans `question_answers` avec `club_id` et `display_order`
+- L'ordre d'affichage est géré par `display_order`
+- Avantage : Un même club peut être réutilisé dans plusieurs questions, pas de duplication
 
 **Fin de partie** :
-- Timer à 0 OU 9 cases remplies
-- Appel `validate_grid_answer()`
+- Timer à 0 OU 20 logos identifiés
+- Appel `validate_logo_sniper_answer()` avec la question_id
+- La fonction utilise `question_answers` pour récupérer les logos et valider les réponses
+- Calcul score final avec bonus (streaks, temps)
 - Navigation vers `GameResultsScreen`
 
 ---
 
-#### 4.5.4 CLUB - Interface
+#### 4.5.4 CLUB ACTUEL - Interface
 
 **Zone centrale** :
 ```
@@ -1706,14 +2185,38 @@ Joueurs devinés: 3/15
 **Détails de validation et scoring** :
 - Objectif : deviner le club actuel du joueur.
 - Source de vérité : `players.current_club` (table `players`).
-- Indices possibles (configurables) : photo, silhouette, nationalité, poste. Pas d’autocomplétion pour garder la difficulté.
+- Indices possibles (configurables) : photo, silhouette, nationalité, poste. Pas d'autocomplétion pour garder la difficulté.
 - Scoring : 1 bonne réponse = 10 points. Série de N joueurs (ex. 15) par partie.
 - Variantes (futures) : mode chrono (60s), mode survie (1 erreur = fin), mode parcours (difficulté croissante).
 
 **Fin de partie** :
 - Timer à 0 OU tous les joueurs présentés
-- Appel `validate_club_answers()`
+- Appel `validate_club_actuel_answers()` avec la question_id
+- La fonction utilise `question_answers` pour récupérer les joueurs et valider les réponses
+- Calcul score final (10 points par bonne réponse)
 - Navigation vers `GameResultsScreen`
+
+**Stockage des données** :
+- Les joueurs à deviner sont stockés dans la table `question_answers`
+- Chaque joueur = 1 enregistrement avec `player_id`, `display_order`
+- La réponse correcte (club actuel) est récupérée depuis `players.current_club`
+
+---
+
+#### 4.5.5 CARRIÈRE INFERNALE - Interface
+
+*[Description à venir - En attente de spécifications]*
+
+**Zone centrale** :
+```
+[Interface à définir]
+```
+
+**Fonctionnalités** :
+- [À compléter]
+
+**Fin de partie** :
+- [À compléter]
 
 ---
 
@@ -1721,7 +2224,9 @@ Joueurs devinés: 3/15
 
 **Écran** : `GameResultsScreen`
 
-**Props** : `match_id`
+**Props** : 
+- Mode Solo : `question_id` et score
+- Mode Défi : `challenge_id` (affiche le classement complet du défi)
 
 **Layout** :
 
@@ -1747,7 +2252,7 @@ Joueurs devinés: 3/15
 - Temps écoulé
 - Clafoutis gagnés
 
-**Multijoueur/Ligue** :
+**Défi/Ligue** :
 - Classement de la partie
   1. Marie - 90 pts 🥇
   2. **Toi - 70 pts** 🥈
@@ -1770,7 +2275,7 @@ Joueurs devinés: 3/15
 **Écran** : `BuyGamesScreen`
 
 **Fonctionnalités** :
-- **Liste des jeux disponibles** : TOP10, GRILLE, CLUB
+- **Liste des jeux disponibles** : TOP10, LOGO SNIPER, CLUB ACTUEL, CARRIÈRE INFERNALE
 - **Prix en cerises** : Chaque jeu a un coût en cerises
 - **Achat immédiat** : Déduction des cerises, déblocage du jeu
 - **Confirmation** : Modal de confirmation avant achat
@@ -1941,9 +2446,9 @@ Inviter des amis
 **Génération Automatique des Parties** :
 - Supabase Edge Function ou Cron
 - Déclenchée selon `match_frequency`
-- Création `match` avec mode='league'
-- Création `match_participants` pour tous les membres actifs
-- Envoi notifications à tous
+- Création automatique des parties de ligue selon la fréquence configurée
+- Ajout de tous les membres actifs comme participants
+- Envoi notifications à tous les membres
 
 ---
 
@@ -1983,20 +2488,20 @@ CREATE INDEX idx_friendships_status ON friendships(status);
 
 #### 3.3.12 **invitations** (Invitations)
 
-Invitations à des parties multijoueurs ou ligues.
+Invitations à des défis ou ligues.
 
 ```sql
 CREATE TABLE invitations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   receiver_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  match_id UUID REFERENCES matches(id) ON DELETE CASCADE,
+  challenge_id UUID REFERENCES challenges(id) ON DELETE CASCADE,
   league_id UUID REFERENCES leagues(id) ON DELETE CASCADE,
   status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined', 'expired')),
   sent_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   responded_at TIMESTAMP WITH TIME ZONE,
   CHECK (sender_id != receiver_id),
-  CHECK ((match_id IS NOT NULL AND league_id IS NULL) OR (match_id IS NULL AND league_id IS NOT NULL))
+  CHECK ((challenge_id IS NOT NULL AND league_id IS NULL) OR (challenge_id IS NULL AND league_id IS NOT NULL))
 );
 
 -- Indexes
@@ -2006,7 +2511,7 @@ CREATE INDEX idx_invitations_status ON invitations(status);
 ```
 
 **Règles métier** :
-- Soit `match_id`, soit `league_id` (pas les deux)
+- Soit `challenge_id`, soit `league_id` (pas les deux)
 - Expiration automatique après 7 jours si non répondue
 
 ---
@@ -2051,10 +2556,10 @@ CREATE INDEX idx_notifications_type ON notifications(type);
   "type": "league_match_start",
   "league_id": "uuid-league",
   "league_name": "Ligue des Champions",
-  "match_id": "uuid-match",
+  "challenge_id": "uuid-challenge",
   "game_type": "TOP10",
   "deadline": "2024-10-21T12:00:00Z",
-  "action_url": "/matches/uuid-match"
+  "action_url": "/challenge/uuid-challenge"
 }
 ```
 
