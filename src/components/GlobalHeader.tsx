@@ -17,11 +17,38 @@ export function GlobalHeader({ showProfile = true }: GlobalHeaderProps) {
 
   // Fonction pour récupérer les cerises depuis Supabase
   const fetchUserCerises = async (userId: string) => {
+    if (!userId) {
+      console.warn('⚠️  GlobalHeader.fetchUserCerises - userId manquant');
+      return;
+    }
+
     try {
-      const headers = {
+      console.log(`🔄 GlobalHeader.fetchUserCerises - Chargement cerises pour userId: ${userId}`);
+      
+      // Récupérer le token d'authentification depuis localStorage
+      let authToken: string | null = null;
+      try {
+        const storedToken = localStorage.getItem('sb-qahbsyolfvujrpblnrvy-auth-token');
+        if (storedToken) {
+          const tokenData = JSON.parse(storedToken);
+          authToken = tokenData.access_token || tokenData.currentSession?.access_token || null;
+        }
+      } catch (e) {
+        console.warn('⚠️  Impossible de récupérer le token d\'auth:', e);
+      }
+      
+      const headers: HeadersInit = {
         'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhaGJzeW9sZnZ1anJwYmxucnZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk0MjY3NTQsImV4cCI6MjA3NTAwMjc1NH0.R_5UPLhgDXW1IA7oGpUE7VB-1OFq-Tx7CNrOPJZ1XrA',
         'Content-Type': 'application/json'
       };
+      
+      // Ajouter le token d'authentification si disponible
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+        console.log('🔐 Utilisation du token d\'authentification pour la lecture');
+      } else {
+        console.warn('⚠️  Pas de token d\'authentification disponible, tentative sans auth');
+      }
 
       const response = await fetch(`https://qahbsyolfvujrpblnrvy.supabase.co/rest/v1/users?select=cerises_balance&id=eq.${userId}`, {
         method: 'GET',
@@ -31,13 +58,14 @@ export function GlobalHeader({ showProfile = true }: GlobalHeaderProps) {
       if (response.ok) {
         const data = await response.json();
         const cerisesBalance = data?.[0]?.cerises_balance || 0;
+        console.log(`✅ GlobalHeader.fetchUserCerises - Cerises récupérées: ${cerisesBalance}`);
         setCerises(cerisesBalance);
-        console.log('🍒 Cerises récupérées depuis Supabase:', cerisesBalance);
       } else {
-        console.error('Erreur récupération cerises:', response.status);
+        const errorText = await response.text();
+        console.error(`❌ GlobalHeader.fetchUserCerises - HTTP ${response.status}:`, errorText);
       }
-    } catch (error) {
-      console.error('Erreur fetchUserCerises:', error);
+    } catch (error: any) {
+      console.error('❌ GlobalHeader.fetchUserCerises - Erreur:', error?.message || error);
     }
   };
 
@@ -58,7 +86,15 @@ export function GlobalHeader({ showProfile = true }: GlobalHeaderProps) {
 
     const handleCerisesUpdate = (event: CustomEvent) => {
       console.log('🔔 Header - Notification de mise à jour des cerises:', event.detail);
-      fetchUserCerises(userId);
+      // Utiliser directement la valeur de l'événement au lieu de refaire une requête
+      if (event.detail?.balance !== undefined) {
+        console.log(`✅ Header - Mise à jour directe du solde depuis l'événement: ${event.detail.balance}`);
+        setCerises(event.detail.balance);
+      } else {
+        // Fallback : refaire une requête si la valeur n'est pas dans l'événement
+        console.log('⚠️  Header - Valeur non trouvée dans l\'événement, récupération depuis l\'API');
+        fetchUserCerises(userId);
+      }
     };
 
     window.addEventListener('cerises-updated' as any, handleCerisesUpdate as any);
@@ -111,7 +147,12 @@ export function GlobalHeader({ showProfile = true }: GlobalHeaderProps) {
           
           if (user) {
             setUserEmail(user.email ?? null);
-            setUserId(user.id ?? null);
+            const newUserId = user.id ?? null;
+            setUserId(newUserId);
+            // Récupérer les cerises quand l'utilisateur est identifié
+            if (newUserId) {
+              fetchUserCerises(newUserId);
+            }
             return;
           }
         } catch (parseErr) {
@@ -182,7 +223,12 @@ export function GlobalHeader({ showProfile = true }: GlobalHeaderProps) {
           if (tokenData.currentSession?.user) {
             const user = tokenData.currentSession.user;
             setUserEmail(user.email ?? null);
-            setUserId(user.id ?? null);
+            const newUserId = user.id ?? null;
+            setUserId(newUserId);
+            // Récupérer les cerises quand l'utilisateur est identifié
+            if (newUserId) {
+              fetchUserCerises(newUserId);
+            }
             navigate('/profil');
             return;
           }

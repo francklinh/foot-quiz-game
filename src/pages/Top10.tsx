@@ -389,12 +389,10 @@ export function Top10() {
           console.log(`⏱️ Temps écoulé ! Ajout de ${cerisesToAdd} cerises`);
           
           cerisesService.addCerises(userId, cerisesToAdd)
-            .then(() => {
-              setCerisesEarned(cerisesToAdd);
-              return cerisesService.getUserCerises(userId);
-            })
             .then((newBalance) => {
+              // addCerises retourne déjà le nouveau solde, pas besoin de refaire getUserCerises
               console.log(`💰 Nouveau solde cerises: ${newBalance}`);
+              setCerisesEarned(cerisesToAdd);
               
               // Notifier le header de la mise à jour AVANT setUserCerises
               console.log('📢 Émission de l\'événement cerises-updated:', { balance: newBalance, added: cerisesToAdd });
@@ -602,13 +600,40 @@ export function Top10() {
       const delta = BASE_GOOD + bonus;
 
       // UI
-      setAnswers((prev) => [...prev, value]);
+      const newAnswers = [...answers, value];
+      setAnswers(newAnswers);
       setScore((prev) => prev + delta);
       setStreak(nextStreak);
       setFeedback({ type: "ok", msg: `Bonne réponse +${delta}` });
       
       // 🎯 Ajouter à la liste des réponses trouvées pour le défloutage
       setFoundAnswers((prev) => new Set(Array.from(prev).concat(norm)));
+
+      // Si tous les joueurs sont trouvés, ajouter les cerises immédiatement
+      if (newAnswers.length >= 10 && userId && !cerisesAddedRef.current) {
+        cerisesAddedRef.current = true;
+        const cerisesToAdd = Math.max(1, score + delta);
+        console.log(`🎯 Tous les joueurs trouvés ! Ajout de ${cerisesToAdd} cerises`);
+        
+        cerisesService.addCerises(userId, cerisesToAdd)
+          .then((newBalance) => {
+            console.log(`💰 Nouveau solde cerises: ${newBalance}`);
+            setCerisesEarned(cerisesToAdd);
+            
+            // Notifier le header de la mise à jour
+            console.log('📢 Émission de l\'événement cerises-updated:', { balance: newBalance, added: cerisesToAdd });
+            const event = new CustomEvent('cerises-updated', { 
+              detail: { balance: newBalance, added: cerisesToAdd } 
+            });
+            window.dispatchEvent(event);
+            
+            setUserCerises(newBalance);
+          })
+          .catch((error) => {
+            console.error('❌ Erreur ajout cerises:', error);
+            cerisesAddedRef.current = false;
+          });
+      }
 
       // DB
       try {

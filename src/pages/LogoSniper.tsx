@@ -41,6 +41,7 @@ export function LogoSniper() {
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const cerisesAddedRef = useRef<boolean>(false);
 
   // Load user
   useEffect(() => {
@@ -126,14 +127,15 @@ export function LogoSniper() {
     setGameOver(false);
     setTimeLeft(60);
     setScore(0);
-      setCurrentLogoIndex(0);
-      setCurrentInput("");
-      setSuggestions([]);
-      setFoundLogos(new Set());
-      setCorrectAnswers([]);
-      setStreakCount(0);
-      setFeedback(null);
-      inputRef.current?.focus();
+    setCurrentLogoIndex(0);
+    setCurrentInput("");
+    setSuggestions([]);
+    setFoundLogos(new Set());
+    setCorrectAnswers([]);
+    setStreakCount(0);
+    setFeedback(null);
+    cerisesAddedRef.current = false; // Réinitialiser le flag pour une nouvelle partie
+    inputRef.current?.focus();
   };
 
   const endGame = async () => {
@@ -159,11 +161,23 @@ export function LogoSniper() {
     setTimeBonus(result.timeBonus);
 
     // Ajouter les cerises au compte utilisateur
-    if (userId && result.cerises > 0) {
+    if (userId && result.cerises > 0 && !cerisesAddedRef.current) {
+      cerisesAddedRef.current = true;
       try {
-        await cerisesService.addCerises(userId, result.cerises);
+        console.log(`💰 Ajout de ${result.cerises} cerises pour l'utilisateur ${userId}`);
+        const newBalance = await cerisesService.addCerises(userId, result.cerises);
+        console.log(`✅ Nouveau solde cerises: ${newBalance}`);
+        
+        // Notifier le header de la mise à jour AVANT de mettre à jour l'état local
+        console.log('📢 Émission de l\'événement cerises-updated:', { balance: newBalance, added: result.cerises });
+        const event = new CustomEvent('cerises-updated', { 
+          detail: { balance: newBalance, added: result.cerises } 
+        });
+        window.dispatchEvent(event);
+        console.log('✅ Événement cerises-updated émis');
       } catch (error) {
-        console.error("Failed to add cerises:", error);
+        console.error("❌ Erreur ajout cerises:", error);
+        cerisesAddedRef.current = false; // Réessayer si erreur
       }
     }
   };
@@ -199,9 +213,23 @@ export function LogoSniper() {
       // Mauvaise réponse
       setStreakCount(0);
       setFeedback({ type: "error", msg: "❌ Incorrect" });
-      setTimeout(() => {
-        setFeedback(null);
-      }, 1000);
+      
+      // Passer au logo suivant après 1000ms (même en cas d'erreur)
+      if (currentLogoIndex < logos.length - 1) {
+        setTimeout(() => {
+          setCurrentLogoIndex((prev) => prev + 1);
+          setCurrentInput("");
+          setSuggestions([]);
+          setFeedback(null);
+          inputRef.current?.focus();
+        }, 1000);
+      } else {
+        // Dernier logo - terminer la partie après le feedback
+        setTimeout(() => {
+          setFeedback(null);
+          endGame();
+        }, 1000);
+      }
     }
   };
 
@@ -423,6 +451,7 @@ export function LogoSniper() {
                     setCorrectAnswers([]);
                     setStreakCount(0);
                     setTimeLeft(60);
+                    cerisesAddedRef.current = false; // Réinitialiser le flag pour une nouvelle partie
                   }}
                   className="px-8 py-4 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-black text-xl hover:from-purple-600 hover:to-pink-600 transform hover:scale-105 transition-all shadow-xl"
                 >

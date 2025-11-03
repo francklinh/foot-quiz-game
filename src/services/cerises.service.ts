@@ -42,23 +42,29 @@ export class CerisesService {
     this.validateUserId(userId);
     
     try {
-      const headers = {
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhaGJzeW9sZnZ1anJwYmxucnZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk0MjY3NTQsImV4cCI6MjA3NTAwMjc1NH0.R_5UPLhgDXW1IA7oGpUE7VB-1OFq-Tx7CNrOPJZ1XrA',
-        'Content-Type': 'application/json'
-      };
+      // Utiliser le client Supabase qui gère automatiquement l'authentification
+      // Utiliser .maybeSingle() au lieu de .single() pour gérer le cas où aucun résultat n'est retourné
+      const { data, error } = await supabase
+        .from('users')
+        .select('cerises_balance')
+        .eq('id', userId)
+        .maybeSingle();
 
-      const response = await fetch(`https://qahbsyolfvujrpblnrvy.supabase.co/rest/v1/users?select=cerises_balance&id=eq.${userId}`, {
-        method: 'GET',
-        headers
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (error) {
+        console.error(`❌ CerisesService.getUserCerises - Erreur:`, error);
+        throw new Error(`Failed to get cerises: ${error.message}`);
       }
 
-      const data = await response.json();
-      return data?.[0]?.cerises_balance || DEFAULT_BALANCE;
-    } catch (error) {
+      if (!data) {
+        console.warn(`⚠️  CerisesService.getUserCerises - Aucune donnée retournée pour userId: ${userId}`);
+        return DEFAULT_BALANCE;
+      }
+
+      const balance = data?.cerises_balance ?? DEFAULT_BALANCE;
+      console.log(`✅ CerisesService.getUserCerises - Balance récupérée: ${balance} cerises`);
+      return balance;
+    } catch (error: any) {
+      console.error(`❌ CerisesService.getUserCerises - Erreur catch:`, error);
       throw new Error(ERROR_MESSAGES.GET_USER_CERISES_FAILED);
     }
   }
@@ -73,44 +79,62 @@ export class CerisesService {
     try {
       console.log(`🔧 CerisesService.addCerises: userId=${userId}, amount=${amount}`);
       
-      // Utiliser l'API REST directe
-      const headers = {
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhaGJzeW9sZnZ1anJwYmxucnZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk0MjY3NTQsImV4cCI6MjA3NTAwMjc1NH0.R_5UPLhgDXW1IA7oGpUE7VB-1OFq-Tx7CNrOPJZ1XrA',
-        'Content-Type': 'application/json'
-      };
-
-      // Récupérer le solde actuel
-      const currentResponse = await fetch(`https://qahbsyolfvujrpblnrvy.supabase.co/rest/v1/users?select=cerises_balance&id=eq.${userId}`, {
-        method: 'GET',
-        headers
-      });
-
-      if (!currentResponse.ok) {
-        throw new Error(`HTTP ${currentResponse.status}: ${currentResponse.statusText}`);
-      }
-
-      const currentData = await currentResponse.json();
-      const currentBalance = currentData?.[0]?.cerises_balance || 0;
-      const newBalance = currentBalance + amount;
+      // Utiliser le client Supabase pour appeler la fonction RPC
+      // Le client gère automatiquement l'authentification
+      console.log(`💰 Ajout de ${amount} cerises via RPC pour userId: ${userId}`);
       
-      console.log(`💰 Solde actuel: ${currentBalance}, nouveau solde: ${newBalance}`);
-
-      // Mettre à jour le solde
-      const updateResponse = await fetch(`https://qahbsyolfvujrpblnrvy.supabase.co/rest/v1/users?id=eq.${userId}`, {
-        method: 'PATCH',
-        headers,
-        body: JSON.stringify({ cerises_balance: newBalance })
+      const { data: rpcData, error: rpcError } = await supabase.rpc('update_cerises_balance', {
+        p_user_id: userId,
+        p_amount: amount
       });
 
-      if (!updateResponse.ok) {
-        const errorText = await updateResponse.text();
-        console.error(`❌ Erreur HTTP ${updateResponse.status}:`, errorText);
-        throw new Error(`HTTP ${updateResponse.status}: ${updateResponse.statusText}`);
+      if (rpcError) {
+        console.error(`❌ Erreur RPC:`, rpcError);
+        throw new Error(`RPC error: ${rpcError.message}`);
       }
 
-      // Ne pas parser le JSON, juste vérifier le statut
-      console.log(`✅ Cerises ajoutées avec succès: ${newBalance}`);
-      return newBalance;
+      console.log(`📦 Réponse RPC brute:`, rpcData);
+      
+      // La fonction RPC retourne le nouveau solde
+      // Si elle retourne null, cela peut indiquer un problème avec la fonction ou les RLS
+      let finalBalance: number;
+      
+      if (typeof rpcData === 'number' && rpcData !== null && !isNaN(rpcData)) {
+        // Cas normal : la fonction retourne un nombre
+        finalBalance = rpcData;
+        console.log(`✅ Cerises ajoutées avec succès via RPC. Nouveau solde: ${finalBalance}`);
+      } else if (rpcData === null || rpcData === undefined) {
+        // Si la fonction retourne null, essayer de récupérer depuis la base
+        console.warn('⚠️  La fonction RPC a retourné null. Cela peut indiquer:');
+        console.warn('   1. Les RLS bloquent la fonction RPC');
+        console.warn('   2. La fonction RPC ne retourne pas de valeur');
+        console.warn('   Solution: Exécuter fix_rpc_return_value.sql et disable_rls_users.sql');
+        console.warn('   Tentative de récupération depuis la base après délai...');
+        
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Délai plus long
+        
+        try {
+          const currentBalance = await this.getUserCerises(userId);
+          finalBalance = currentBalance + amount; // Calculer manuellement si la lecture fonctionne
+          console.log(`✅ Récupération depuis la base. Nouveau solde calculé: ${finalBalance}`);
+        } catch (err) {
+          console.error('❌ Impossible de récupérer depuis la base:', err);
+          // Retourner quand même une valeur calculée
+          finalBalance = amount; // Au moins retourner le montant ajouté
+          console.warn(`⚠️  Utilisation d'une valeur par défaut: ${finalBalance}`);
+        }
+      } else {
+        // Format inattendu
+        console.warn('⚠️  Format de réponse RPC inattendu:', rpcData);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        try {
+          finalBalance = await this.getUserCerises(userId);
+        } catch (err) {
+          finalBalance = amount; // Fallback
+        }
+      }
+      
+      return finalBalance;
     } catch (error) {
       console.error(`❌ Erreur dans addCerises:`, error);
       throw new Error(ERROR_MESSAGES.ADD_CERISES_FAILED);
