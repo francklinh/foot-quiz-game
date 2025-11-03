@@ -282,27 +282,27 @@ export function LogoSniper() {
   const finalMessage = gameOver ? getFinalMessage() : null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-purple-900 text-white p-4">
+    <div className="min-h-screen bg-pattern text-primary p-4">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-6">
-          <h1 className="text-4xl font-black mb-2">🎯 LOGO SNIPER</h1>
-          <p className="text-lg opacity-90">Identifie rapidement les logos !</p>
+          <h1 className="text-4xl font-black mb-2 text-primary">🎯 LOGO SNIPER</h1>
+          <p className="text-lg text-secondary">Identifie rapidement les logos !</p>
         </div>
 
         {/* Question Selector */}
         {!gameStarted && (
-          <div className="bg-white/10 rounded-xl p-4 mb-6 backdrop-blur-sm">
-            <label className="block text-sm font-semibold mb-2">Sélectionner une question</label>
+          <div className="card-primary rounded-xl p-4 mb-6">
+            <label className="block text-sm font-semibold mb-2 text-primary">Sélectionner une question</label>
             <select
               value={selectedQuestion}
               onChange={(e) => setSelectedQuestion(e.target.value)}
               disabled={gameStarted}
-              className="w-full p-3 rounded-xl border-2 border-primary/20 bg-white/10 text-white font-medium focus:outline-none focus:border-primary transition-colors"
+              className="w-full p-3 rounded-xl border-2 border-primary input-primary font-medium focus:outline-none focus:border-primary transition-colors"
             >
               <option value="">-- Choisir une question --</option>
               {availableQuestions.map((q) => (
-                <option key={q.id} value={q.id} className="text-black">
+                <option key={q.id} value={q.id}>
                   {q.title}
                 </option>
               ))}
@@ -312,10 +312,10 @@ export function LogoSniper() {
 
         {/* Game Area */}
         {gameStarted && !gameOver && currentLogo && (
-          <div className="bg-white/10 rounded-2xl p-8 backdrop-blur-sm mb-6">
+          <div className="card-primary rounded-2xl p-8 mb-6 shadow-lg">
             {/* Timer */}
             <div className="text-center mb-6">
-              <div className="text-4xl font-black text-yellow-300">
+              <div className="text-4xl font-black text-primary">
                 ⏱️ {timeLeft}s
               </div>
             </div>
@@ -325,17 +325,17 @@ export function LogoSniper() {
               <div className="relative">
                 {/* Flash effect on correct answer */}
                 {feedback?.type === "ok" && (
-                  <div className="absolute inset-0 bg-yellow-400 opacity-30 rounded-xl animate-pulse"></div>
+                  <div className="absolute inset-0 bg-success-light opacity-50 rounded-xl animate-pulse"></div>
                 )}
                 {/* Flash red on error */}
                 {feedback?.type === "error" && (
-                  <div className="absolute inset-0 bg-red-500 opacity-30 rounded-xl animate-pulse"></div>
+                  <div className="absolute inset-0 bg-danger-light opacity-50 rounded-xl animate-pulse"></div>
                 )}
                 
                 <img
                   src={currentLogo.club.logo_url}
                   alt="Logo"
-                  className="w-64 h-64 object-contain rounded-xl bg-white/20 p-4 border-4 border-white/30"
+                  className="w-64 h-64 object-contain rounded-xl bg-accent p-4 border-4 border-primary"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = "https://via.placeholder.com/256x256?text=Logo+Missing";
                   }}
@@ -356,16 +356,16 @@ export function LogoSniper() {
                   }
                 }}
                 placeholder="Nom du club..."
-                className="w-full p-4 rounded-xl bg-white/20 text-white placeholder-white/50 border-2 border-white/30 focus:border-yellow-400 text-xl font-semibold focus:outline-none"
+                className="w-full p-4 rounded-xl input-primary text-xl font-semibold focus:outline-none"
                 disabled={gameOver}
               />
               {suggestions.length > 0 && (
-                <ul className="absolute z-10 w-full mt-2 bg-white/90 rounded-xl shadow-xl max-h-60 overflow-y-auto">
+                <ul className="absolute z-10 w-full mt-2 bg-accent rounded-xl shadow-xl max-h-60 overflow-y-auto border-2 border-primary">
                   {suggestions.map((suggestion, idx) => (
                     <li
                       key={idx}
                       onClick={() => handleSuggestionSelect(suggestion)}
-                      className="p-3 hover:bg-blue-500/20 cursor-pointer text-gray-900 font-medium border-b border-gray-200 last:border-b-0"
+                      className="p-3 hover:bg-primary-light cursor-pointer text-primary font-medium border-b border-light last:border-b-0"
                     >
                       {suggestion}
                     </li>
@@ -379,10 +379,10 @@ export function LogoSniper() {
               <div
                 className={`text-center p-4 rounded-xl mb-4 ${
                   feedback.type === "ok"
-                    ? "bg-green-500/30 text-green-200"
+                    ? "bg-success-light text-success border-2 border-success"
                     : feedback.type === "error"
-                    ? "bg-red-500/30 text-red-200"
-                    : "bg-blue-500/30 text-blue-200"
+                    ? "bg-danger-light text-danger border-2 border-danger"
+                    : "bg-info-light text-info border-2 border-info"
                 }`}
               >
                 {feedback.msg}
@@ -391,18 +391,18 @@ export function LogoSniper() {
 
             {/* Progress */}
             <div className="text-center">
-              <div className="text-2xl font-bold mb-2">
+              <div className="text-2xl font-bold mb-2 text-primary">
                 {currentLogoIndex + 1} / {logos.length}
               </div>
-              <div className="w-full bg-white/20 rounded-full h-4 mb-2">
+              <div className="w-full bg-accent-dark rounded-full h-4 mb-2 border-2 border-primary">
                 <div
-                  className="bg-yellow-400 h-4 rounded-full transition-all duration-300"
+                  className="bg-primary h-4 rounded-full transition-all duration-300"
                   style={{
                     width: `${((currentLogoIndex + 1) / logos.length) * 100}%`,
                   }}
                 />
               </div>
-              <div className="text-sm opacity-75">
+              <div className="text-sm text-secondary">
                 Score: {score} | Streak: {streakCount}
               </div>
             </div>
@@ -411,30 +411,30 @@ export function LogoSniper() {
 
         {/* Game Over Screen */}
         {gameOver && (
-          <div className="bg-white/10 rounded-2xl p-8 backdrop-blur-sm mb-6">
+          <div className="card-primary rounded-2xl p-8 mb-6 shadow-lg">
             <div className="text-center">
               <div className="text-6xl mb-4">{finalMessage?.emoji}</div>
-              <h2 className="text-3xl font-black mb-2">{finalMessage?.title}</h2>
-              <p className="text-xl opacity-90 mb-6">{finalMessage?.message}</p>
+              <h2 className="text-3xl font-black mb-2 text-primary">{finalMessage?.title}</h2>
+              <p className="text-xl text-secondary mb-6">{finalMessage?.message}</p>
 
               <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-white/10 rounded-xl p-4">
-                  <div className="text-sm opacity-75 mb-1">Score</div>
-                  <div className="text-3xl font-black">{finalScore}</div>
+                <div className="card-accent rounded-xl p-4 border-2 border-primary">
+                  <div className="text-sm text-secondary mb-1">Score</div>
+                  <div className="text-3xl font-black text-primary">{finalScore}</div>
                 </div>
-                <div className="bg-white/10 rounded-xl p-4">
-                  <div className="text-sm opacity-75 mb-1">Cerises</div>
-                  <div className="text-3xl font-black">🍒 {cerisesEarned}</div>
+                <div className="card-accent rounded-xl p-4 border-2 border-primary">
+                  <div className="text-sm text-secondary mb-1">Cerises</div>
+                  <div className="text-3xl font-black text-primary">🍒 {cerisesEarned}</div>
                 </div>
-                <div className="bg-white/10 rounded-xl p-4">
-                  <div className="text-sm opacity-75 mb-1">Réponses correctes</div>
-                  <div className="text-3xl font-black">
+                <div className="card-accent rounded-xl p-4 border-2 border-primary">
+                  <div className="text-sm text-secondary mb-1">Réponses correctes</div>
+                  <div className="text-3xl font-black text-primary">
                     {correctAnswers.length} / {logos.length}
                   </div>
                 </div>
-                <div className="bg-white/10 rounded-xl p-4">
-                  <div className="text-sm opacity-75 mb-1">Bonus</div>
-                  <div className="text-xl font-bold">
+                <div className="card-accent rounded-xl p-4 border-2 border-primary">
+                  <div className="text-sm text-secondary mb-1">Bonus</div>
+                  <div className="text-xl font-bold text-primary">
                     Streak: +{streakBonus} | Temps: +{timeBonus}
                   </div>
                 </div>
@@ -453,13 +453,13 @@ export function LogoSniper() {
                     setTimeLeft(60);
                     cerisesAddedRef.current = false; // Réinitialiser le flag pour une nouvelle partie
                   }}
-                  className="px-8 py-4 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-black text-xl hover:from-purple-600 hover:to-pink-600 transform hover:scale-105 transition-all shadow-xl"
+                  className="px-8 py-4 rounded-2xl btn-primary font-black text-xl transform hover:scale-105 transition-all shadow-xl text-inverse"
                 >
                   🎮 NOUVELLE PARTIE
                 </button>
                 <button
                   onClick={() => navigate("/")}
-                  className="px-8 py-4 rounded-2xl bg-white/20 text-white font-bold text-xl hover:bg-white/30 transform hover:scale-105 transition-all"
+                  className="px-8 py-4 rounded-2xl btn-outline font-bold text-xl transform hover:scale-105 transition-all"
                 >
                   🏠 ACCUEIL
                 </button>
@@ -474,7 +474,7 @@ export function LogoSniper() {
             <button
               onClick={startGame}
               disabled={!selectedQuestion || logos.length === 0}
-              className="px-12 py-6 rounded-2xl bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 font-black text-2xl hover:from-yellow-500 hover:to-orange-600 transform hover:scale-105 transition-all shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              className="px-12 py-6 rounded-2xl bg-gradient-to-r from-primary to-primary-dark text-inverse font-black text-2xl hover:from-primary-dark hover:to-primary transform hover:scale-105 transition-all shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
               🎯 COMMENCER
             </button>
