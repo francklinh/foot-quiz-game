@@ -40,6 +40,12 @@ export function Home() {
       icon: "🏆"
     },
     {
+      title: "LOGO SNIPER",
+      path: buildGamePath('/logo-sniper'),
+      active: true,
+      icon: "🎯"
+    },
+    {
       title: "GRILLE",
       path: "#",
       active: false,
@@ -52,12 +58,6 @@ export function Home() {
       active: false,
       icon: "⚽",
       comingSoon: true
-    },
-    {
-      title: "COMING SOON",
-      path: "#",
-      active: false,
-      icon: "🔒"
     }
   ];
 
@@ -130,7 +130,7 @@ export function Home() {
               {module.active ? (
                 <Link to={module.path} className="block h-full">
                   <div className="text-center h-full flex flex-col justify-center">
-                    <div className="text-6xl mb-4">🏆</div>
+                    <div className="text-6xl mb-4">{module.icon}</div>
                     <h3 className="text-2xl font-bold text-inverse uppercase tracking-wider">
                       {module.title}
                     </h3>
@@ -138,7 +138,7 @@ export function Home() {
                 </Link>
               ) : (
                 <div className="text-center h-full flex flex-col justify-center">
-                  <div className="text-6xl mb-4 opacity-50">🔒</div>
+                  <div className="text-6xl mb-4 opacity-50">{module.icon || '🔒'}</div>
                   <h3 className="text-2xl font-bold text-muted uppercase tracking-wider">
                     {module.title}
                   </h3>
