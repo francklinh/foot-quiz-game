@@ -53,11 +53,10 @@ export function Home() {
       comingSoon: true
     },
     {
-      title: "CLUB",
-      path: "#",
-      active: false,
-      icon: "⚽",
-      comingSoon: true
+      title: "CLUB ACTUEL",
+      path: buildGamePath('/club-actuel'),
+      active: true,
+      icon: "⚽"
     }
   ];
 

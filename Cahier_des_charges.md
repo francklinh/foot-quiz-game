@@ -40,7 +40,7 @@ CLAFOOTIX est une application de jeux de football permettant aux utilisateurs de
 
 **Jeux en développement** :
 - **LOGO SNIPER** 🔜 : Jeu de rapidité et de réflexe visuel où le joueur doit identifier des logos de clubs ou de sélections apparaissant successivement
-- **CLUB ACTUEL** 🔜 : Deviner le club actuel d'un joueur présenté (photo/nom/indice), un joueur à la fois
+- **CLUB ACTUEL** 🔜 : Jeu d'actualité et de culture foot où l'utilisateur voit l'identité d'un joueur (photo + nom OU photo seule selon le mode) et doit indiquer le club dans lequel il évolue actuellement. Combine réflexe, mémoire et veille football (transferts, mercato, actualité des championnats).
 - **CARRIÈRE INFERNALE** 🔜 : [Description à venir]
 
 ### 1.2 Modes de Jeu
@@ -486,6 +486,10 @@ CREATE INDEX idx_questions_archived ON questions(is_archived) WHERE is_archived 
 - "Logos rétro 80s–2000s"
 
 **CLUB_ACTUEL** (game_type = 'CLUB_ACTUEL') :
+- "Top joueurs des 5 grands championnats"
+- "Transferts récents"
+- "Jeunes pépites en pleine ascension"
+- "Retour de légendes dans leurs clubs formateurs"
 - "Devine le club actuel des joueurs (photo)"
 - "Devine le club actuel des joueurs (nom + nationalité)"
 
@@ -1124,23 +1128,34 @@ $ LANGUAGE plpgsql;
 ```sql
 CREATE OR REPLACE FUNCTION validate_club_actuel_answers(
   p_question_id UUID,
-  p_user_answers JSONB -- Format: {"player_name": "club_name", ...}
+  p_user_answers JSONB, -- Format: {"player_id": "club_name", ...} ou {"player_name": "club_name", ...}
+  p_time_remaining INTEGER DEFAULT 0, -- Secondes restantes pour bonus temps
+  p_streak_count INTEGER DEFAULT 0 -- Nombre de bonnes réponses consécutives (calculé côté app)
 )
 RETURNS TABLE(
   correct_count INTEGER,
   total_players INTEGER,
   correct_answers JSONB,
-  score INTEGER
+  score INTEGER,
+  cerises_earned INTEGER,
+  streak_bonus INTEGER,
+  time_bonus INTEGER
 ) AS $
 DECLARE
   v_answer RECORD;
   v_user_club TEXT;
+  v_user_club_normalized TEXT;
+  v_correct_club_normalized TEXT;
   v_is_correct BOOLEAN;
   v_correct JSONB := '{}'::JSONB;
   v_correct_count INTEGER := 0;
   v_total INTEGER;
+  v_cerises_base INTEGER := 0;
+  v_streak_bonus INTEGER := 0;
+  v_time_bonus INTEGER := 0;
+  v_cerises_total INTEGER := 0;
 BEGIN
-  -- Compter le nombre total de joueurs pour cette question
+  -- Compter le nombre total de joueurs pour cette question (15 par défaut)
   SELECT COUNT(*) INTO v_total
   FROM question_answers qa
   WHERE qa.question_id = p_question_id 
@@ -1149,7 +1164,7 @@ BEGIN
   
   -- Parcourir les réponses dans l'ordre d'affichage
   FOR v_answer IN 
-    SELECT qa.*, p.name as player_name, p.current_club
+    SELECT qa.*, p.name as player_name, p.current_club, p.id as player_id_uuid
     FROM question_answers qa
     INNER JOIN players p ON qa.player_id = p.id
     WHERE qa.question_id = p_question_id 
@@ -1157,12 +1172,19 @@ BEGIN
     AND qa.player_id IS NOT NULL
     ORDER BY qa.display_order, qa.id
   LOOP
-    -- Récupérer la réponse utilisateur pour ce joueur
-    v_user_club := p_user_answers->>v_answer.player_name;
+    -- Récupérer la réponse utilisateur pour ce joueur (par player_id ou player_name)
+    v_user_club := COALESCE(
+      p_user_answers->>v_answer.player_id_uuid::text,
+      p_user_answers->>v_answer.player_name
+    );
     
     IF v_user_club IS NOT NULL THEN
+      -- Normaliser les deux chaînes pour comparaison (sans accents, lowercase)
+      v_user_club_normalized := LOWER(TRIM(translate(v_user_club, 'àáâãäåèéêëìíîïòóôõöùúûüýÿ', 'aaaaaaeeeeiiiioooouuuuyy')));
+      v_correct_club_normalized := LOWER(TRIM(translate(v_answer.current_club, 'àáâãäåèéêëìíîïòóôõöùúûüýÿ', 'aaaaaaeeeeiiiioooouuuuyy')));
+      
       -- Vérifier si la réponse correspond au club actuel du joueur
-      v_is_correct := LOWER(TRIM(v_user_club)) = LOWER(TRIM(v_answer.current_club));
+      v_is_correct := v_user_club_normalized = v_correct_club_normalized;
       
       IF v_is_correct THEN
         v_correct := v_correct || jsonb_build_object(
@@ -1170,24 +1192,259 @@ BEGIN
           jsonb_build_object(
             'user_answer', v_user_club,
             'correct_club', v_answer.current_club,
-            'player_id', v_answer.player_id
+            'player_id', v_answer.player_id_uuid
           )
         );
         v_correct_count := v_correct_count + 1;
+        v_cerises_base := v_cerises_base + 10; -- 10 cerises par bonne réponse
       END IF;
     END IF;
   END LOOP;
+  
+  -- Calculer les bonus de streak (selon p_streak_count)
+  -- Les streaks sont calculés côté application en temps réel
+  IF p_streak_count >= 12 THEN
+    v_streak_bonus := 15;
+  ELSIF p_streak_count >= 9 THEN
+    v_streak_bonus := 15;
+  ELSIF p_streak_count >= 6 THEN
+    v_streak_bonus := 10;
+  ELSIF p_streak_count >= 3 THEN
+    v_streak_bonus := 10;
+  END IF;
+  
+  -- Bonus temps (1 cerise par seconde restante, hors 200-point cap)
+  v_time_bonus := GREATEST(0, p_time_remaining);
+  
+  -- Calculer le total de cerises (max 200 pour base + streaks, bonus temps en plus)
+  v_cerises_total := GREATEST(0, LEAST(200, v_cerises_base + v_streak_bonus)) + v_time_bonus;
   
   RETURN QUERY SELECT
     v_correct_count,
     v_total,
     v_correct,
-    v_correct_count * 10; -- Score : 10 points par bonne réponse
+    v_correct_count * 10, -- Score : 10 points par bonne réponse
+    v_cerises_total, -- Cerises totales (base + streaks + temps)
+    v_streak_bonus, -- Bonus streaks
+    v_time_bonus; -- Bonus temps
 END;
 $ LANGUAGE plpgsql;
 ```
 
-**Usage** : Appelée côté app pour calculer le score du joueur dans Club Actuel. Utilise la table `question_answers` avec les champs `player_id`, `display_order`, et la jointure avec `players.current_club`.
+**Usage** : Appelée côté app pour calculer le score et les cerises gagnées du joueur dans Club Actuel. Utilise la table `question_answers` avec les champs `player_id`, `display_order`, et la jointure avec `players.current_club`.
+
+**Paramètres** :
+- `p_user_answers` : JSONB avec les réponses de l'utilisateur (format: `{"player_id": "club_name"}` ou `{"player_name": "club_name"}`)
+- `p_time_remaining` : Secondes restantes (pour bonus temps)
+- `p_streak_count` : Nombre de bonnes réponses consécutives (calculé côté application en temps réel)
+
+**Retour** :
+- `correct_count` : Nombre de bonnes réponses
+- `total_players` : Nombre total de joueurs (15)
+- `correct_answers` : JSONB avec les détails des bonnes réponses
+- `score` : Score (10 points par bonne réponse)
+- `cerises_earned` : Cerises totales gagnées (base + streaks + temps)
+- `streak_bonus` : Bonus streaks appliqué
+- `time_bonus` : Bonus temps appliqué
+
+---
+
+### 3.4.7 Évolutions Base de Données pour CLUB ACTUEL
+
+**Évolutions nécessaires pour le jeu Club Actuel** :
+
+#### 3.4.7.1 Autocomplétion des Clubs
+
+**Problématique** : L'autocomplétion intelligente des clubs nécessite une liste normalisée et dédupliquée des noms de clubs.
+
+**Solutions possibles** :
+
+**Option A : Utiliser la table `clubs` existante** (Recommandé)
+- Avantage : Déjà normalisée, contient `name_variations` pour les variantes acceptées
+- Inconvénient : La table `clubs` est principalement dédiée à Logo Sniper (logos)
+- Solution : Étendre l'utilisation de `clubs` pour inclure tous les clubs référencés dans `players.current_club`
+- Migration nécessaire :
+  ```sql
+  -- S'assurer que tous les clubs de players.current_club existent dans clubs
+  INSERT INTO clubs (name, type, country, league)
+  SELECT DISTINCT current_club, 'CLUB', NULL, NULL
+  FROM players
+  WHERE current_club IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM clubs WHERE clubs.name = players.current_club
+  );
+  
+  -- Créer une fonction d'autocomplétion pour les clubs
+  CREATE OR REPLACE FUNCTION search_clubs(
+    p_search_term TEXT,
+    p_limit INTEGER DEFAULT 20
+  )
+  RETURNS TABLE(
+    id UUID,
+    name VARCHAR,
+    name_variations TEXT[],
+    type VARCHAR,
+    country VARCHAR,
+    league VARCHAR,
+    relevance REAL
+  ) AS $
+  BEGIN
+    RETURN QUERY
+    SELECT 
+      c.id,
+      c.name,
+      c.name_variations,
+      c.type,
+      c.country,
+      c.league,
+      CASE 
+        WHEN LOWER(c.name) = LOWER(p_search_term) THEN 1.0
+        WHEN LOWER(c.name) LIKE LOWER(p_search_term) || '%' THEN 0.8
+        WHEN LOWER(c.name) LIKE '%' || LOWER(p_search_term) || '%' THEN 0.6
+        ELSE 0.4
+      END as relevance
+    FROM clubs c
+    WHERE c.is_active = true
+    AND (
+      LOWER(c.name) LIKE '%' || LOWER(p_search_term) || '%'
+      OR EXISTS(
+        SELECT 1 FROM unnest(c.name_variations) as v
+        WHERE LOWER(v) LIKE '%' || LOWER(p_search_term) || '%'
+      )
+    )
+    ORDER BY relevance DESC, c.name
+    LIMIT p_limit;
+  END;
+  $ LANGUAGE plpgsql;
+  ```
+
+**Option B : Créer une vue matérialisée des clubs uniques**
+- Créer une vue qui agrège les clubs depuis `players.current_club`
+- Avantage : Pas de duplication, toujours à jour
+- Inconvénient : Nécessite un refresh périodique, pas de normalisation des variantes
+- Solution :
+  ```sql
+  CREATE MATERIALIZED VIEW clubs_from_players AS
+  SELECT DISTINCT
+    current_club as name,
+    COUNT(*) as player_count
+  FROM players
+  WHERE current_club IS NOT NULL
+  AND is_active = true
+  GROUP BY current_club;
+  
+  CREATE INDEX idx_clubs_from_players_name ON clubs_from_players(name);
+  
+  -- Refresh périodique (via cron ou trigger)
+  REFRESH MATERIALIZED VIEW clubs_from_players;
+  ```
+
+**Recommandation** : **Option A** - Utiliser la table `clubs` existante et créer une fonction d'autocomplétion dédiée.
+
+#### 3.4.7.2 Normalisation des Noms de Clubs
+
+**Problématique** : Les noms de clubs peuvent varier dans `players.current_club` (ex: "Real Madrid", "Real Madrid CF", "Real").
+
+**Solution** :
+- Utiliser la normalisation côté PostgreSQL dans la fonction de validation (déjà implémentée)
+- Créer une fonction utilitaire de normalisation réutilisable :
+  ```sql
+  CREATE OR REPLACE FUNCTION normalize_club_name(p_name TEXT)
+  RETURNS TEXT AS $
+  BEGIN
+    RETURN LOWER(TRIM(translate(
+      p_name,
+      'àáâãäåèéêëìíîïòóôõöùúûüýÿ',
+      'aaaaaaeeeeiiiioooouuuuyy'
+    )));
+  END;
+  $ LANGUAGE plpgsql IMMUTABLE;
+  ```
+- Utiliser cette fonction dans `validate_club_actuel_answers()` pour comparer les noms
+
+#### 3.4.7.3 Gestion des Variantes de Noms de Clubs
+
+**Problématique** : Un même club peut être écrit de différentes façons (ex: "PSG", "Paris Saint-Germain", "PSG FC").
+
+**Solution** :
+- Utiliser le champ `name_variations` de la table `clubs`
+- Lors de la création/mise à jour d'un joueur, vérifier si le club existe dans `clubs` avec ses variantes
+- Si le club n'existe pas, créer une entrée dans `clubs` avec les variantes communes
+- Dans la fonction de validation, vérifier aussi les variantes :
+  ```sql
+  -- Dans validate_club_actuel_answers()
+  -- Vérifier si le club du joueur correspond à un club dans la table clubs
+  -- et utiliser les variantes pour la validation
+  SELECT c.name, c.name_variations
+  FROM clubs c
+  WHERE c.name = v_answer.current_club
+  OR v_answer.current_club = ANY(c.name_variations);
+  ```
+
+#### 3.4.7.4 Index pour Performance
+
+**Index à créer** pour optimiser les requêtes :
+```sql
+-- Index sur players.current_club pour recherche rapide
+CREATE INDEX IF NOT EXISTS idx_players_current_club 
+ON players(current_club) 
+WHERE current_club IS NOT NULL AND is_active = true;
+
+-- Index sur clubs.name pour autocomplétion
+CREATE INDEX IF NOT EXISTS idx_clubs_name_search 
+ON clubs USING gin(to_tsvector('french', name || ' ' || array_to_string(name_variations, ' ')))
+WHERE is_active = true;
+```
+
+#### 3.4.7.5 Traçabilité des Transferts (Optionnel - Future)
+
+**Idée** : Pour suivre l'actualité des transferts, on pourrait ajouter une table `player_transfers` :
+```sql
+CREATE TABLE player_transfers (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  player_id UUID NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  from_club VARCHAR(200),
+  to_club VARCHAR(200) NOT NULL,
+  transfer_date DATE NOT NULL,
+  transfer_type VARCHAR(20) CHECK (transfer_type IN ('LOAN', 'PERMANENT', 'FREE')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_player_transfers_player ON player_transfers(player_id);
+CREATE INDEX idx_player_transfers_date ON player_transfers(transfer_date DESC);
+```
+
+Cette table permettrait de :
+- Filtrer les questions "Transferts récents" (derniers 6 mois)
+- Afficher l'historique des transferts d'un joueur
+- Créer des questions thématiques basées sur les transferts récents
+
+**Note** : Cette évolution est optionnelle et peut être ajoutée dans une version future.
+
+#### 3.4.7.6 Scripts SQL de Migration
+
+**Fichiers SQL créés** :
+- `sql/migrations/club_actuel_setup.sql` : Script de migration complet avec toutes les fonctions et index
+- `sql/test_club_actuel_functions.sql` : Script de tests pour vérifier les fonctions
+
+**Contenu du script de migration** :
+1. Fonction `normalize_club_name()` : Normalisation des noms de clubs
+2. Fonction `search_clubs()` : Autocomplétion intelligente des clubs
+3. Fonction `validate_club_actuel_answers()` : Validation mise à jour avec streaks et bonus temps
+4. Index de performance : `idx_players_current_club`, `idx_clubs_name_trgm`, `idx_clubs_name_variations`
+5. Migration des clubs : Insertion automatique des clubs depuis `players.current_club` vers `clubs`
+6. Fonction helper : `get_clubs_from_players()` pour l'administration
+
+**Instructions d'utilisation** :
+```sql
+-- 1. Exécuter le script de migration
+\i sql/migrations/club_actuel_setup.sql
+
+-- 2. (Optionnel) Exécuter les tests
+\i sql/test_club_actuel_functions.sql
+```
+
+**Note importante** : Le script de migration est idempotent (peut être exécuté plusieurs fois sans erreur grâce à `CREATE OR REPLACE` et `IF NOT EXISTS`).
 
 ---
 
@@ -2091,7 +2348,8 @@ Chronomètre: ⏱️ 45s restantes
 - Effet "sniper" : zoom rapide sur le logo, curseur rouge pulsant
 - Champ de saisie avec autocomplétion pour nom du club/sélection
 - Validation instantanée à chaque réponse
-- Passage automatique au logo suivant
+- **Bonne réponse** : halo doré → passage automatique au logo suivant après 500ms
+- **Mauvaise réponse** : flash rouge + écran tremble → passage automatique au logo suivant après 1000ms (pas de possibilité de réessayer)
 - Effet de flash entre chaque logo
 
 **Ambiance visuelle** :
@@ -2159,47 +2417,134 @@ Chronomètre: ⏱️ 45s restantes
 
 #### 4.5.4 CLUB ACTUEL - Interface
 
+**Thématique** :
+
+**Concept** :
+- Jeu d'actualité et de culture foot.
+- L'utilisateur voit l'identité d'un joueur (photo + nom OU photo seule selon le mode) et doit indiquer le club dans lequel il évolue actuellement.
+- Le jeu combine réflexe, mémoire et veille football (transferts, mercato, actualité des championnats).
+
+**Exemples de thèmes** :
+- "Top joueurs des 5 grands championnats"
+- "Transferts récents"
+- "Jeunes pépites en pleine ascension"
+- "Retour de légendes dans leurs clubs formateurs"
+
+**Ambiance visuelle** :
+- Fond épuré gris-bleu style "journal de transfert".
+- Encadré photo type "fiche de joueur FIFA".
+- Effets lumineux bleus et dorés sur validation.
+- Interface moderne, typographie dynamique, ambiance mercato / newsroom sportive.
+
+**Objectif** :
+- **Court terme** : Deviner le club actuel du joueur affiché le plus vite possible.
+- **Moyen terme** : Enchaîner les bonnes réponses sans se tromper pour maximiser les streaks.
+- **Long terme** : Maintenir une connaissance actualisée du football mondial et devenir "Expert mercato Clafootix".
+
 **Zone centrale** :
 ```
-[Photo du joueur]
+┌─────────────────────────────────────┐
+│                                     │
+│    [Photo du joueur]                │
+│    (option mode silhouette          │
+│     capillaire + visage flouté)     │
+│                                     │
+└─────────────────────────────────────┘
 
 Kylian Mbappé
+(ou photo seule selon mode)
 
 Quel est son club actuel ?
 
 ┌─────────────────────────────────────┐
 │  [Real Madrid__________________]    │
+│  (autocomplétion intelligente)       │
 └─────────────────────────────────────┘
 
            [Valider]
 
+⏱️ 45s restantes
 Joueurs devinés: 3/15
+[Badge Championnat - optionnel]
 ```
 
 **Fonctionnalités** :
-- Saisie libre (pas d'autocomplétion pour augmenter difficulté)
-- Clic "Valider" → vérification
-- Si correct : joueur suivant automatiquement
-- Si incorrect : affichage bonne réponse, puis joueur suivant
+- **Interface visuelle** :
+  - Photo du joueur au centre (avec option mode silhouette capillaire + visage flouté pour difficulté bonus).
+  - Barre de saisie avec autocomplétion en bas de l'écran.
+  - Chronomètre en haut à droite.
+  - Badge "Championnat" facultatif (mode facile) — ex: Premier League logo.
+  - Effets type "ticker mercato" qui défilent en fond très léger.
+
+- **Interaction** :
+  - L'utilisateur écrit le club → autocomplétion intelligente (clubs par ordre de probabilité).
+  - Valide lorsqu'il soumet une réponse correcte.
+  - **Bonne réponse** → carte joueur animée, maillot du club apparaît, écusson s'affiche en animation pop.
+  - **Mauvaise réponse** → tremblement + bruit court + bannière rouge "Move raté !".
+
+**Système de points & Feedback** :
+
+**Barème des cerises** :
+- 15 joueurs à identifier = 150 cerises (10 cerises par bonne réponse).
+- **Bonus streaks** (inclus dans les 200 max) :
+  - 3 bonnes réponses consécutives → +10 cerises
+  - 6 → +10 cerises
+  - 9 → +15 cerises
+  - 12 → +15 cerises
+  - **Total streak possible = +50 cerises**
+- **Bonus temps** :
+  - +1 cerise par seconde restante sur 60 (en plus, hors 200-point cap).
+
+**Feedback visuel** :
+- **Bonne réponse** → carte joueur dorée, écusson du club pop 3D, maillot visible.
+- **Mauvaise** → halo rouge, écran shake, petit carton jaune animé au coin.
+- **Série parfaite** → pluie de confettis dorés + fond "deadline mercato" qui scintille.
+
+**Feedback sonore** :
+- **Bonne réponse** → ding clair + chant court des supporters du club (type générique).
+- **Mauvaise** → bip grave + bruit de carton jaune.
+- **Série streak** → crescendo de tambours + notes cuivrées.
+- **Série parfaite** → hymne Clafootix remix mercato + bruit de flash journaliste.
+
+**Messages finaux** :
+
+**Texte** :
+- **Parfait (200+bonus)** : "Directeur sportif en chef ! Tu signes les stars avant tout le monde 🍒💼⚽"
+- **Très bon (100–199)** : "Solide ! Tu surveilles bien le mercato, mais t'as laissé filer 2–3 transferts."
+- **Moyen (50–99)** : "Tu lis les infos transfert… mais en retard d'une journée."
+- **Échec (0–49)** : "T'es perdu au mercato. T'as encore pensé que Ronaldo jouait au Real ? 😭🍒"
+
+**Effet visuel** :
+- **Parfait** → animation "tableau des transferts" doré, flash caméras, pluie de confettis.
+- **Moyen** → fond vert stable façon feuille match.
+- **Échec** → fax qui se bloque, écran grisé façon transfert avorté deadline-day.
+
+**Effet sonore** :
+- **Parfait** → public qui chante ton nom + flash caméras + trompettes mercato.
+- **Moyen** → applaudissement modéré.
+- **Échec** → sifflets, bruit de fax qui se déchire + speaker "Transfert refusé !"
 
 **Détails de validation et scoring** :
 - Objectif : deviner le club actuel du joueur.
 - Source de vérité : `players.current_club` (table `players`).
-- Indices possibles (configurables) : photo, silhouette, nationalité, poste. Pas d'autocomplétion pour garder la difficulté.
-- Scoring : 1 bonne réponse = 10 points. Série de N joueurs (ex. 15) par partie.
-- Variantes (futures) : mode chrono (60s), mode survie (1 erreur = fin), mode parcours (difficulté croissante).
+- Indices possibles (configurables) : photo, silhouette, nationalité, poste.
+- Autocomplétion intelligente : clubs par ordre de probabilité depuis la base de données.
+- Scoring : 1 bonne réponse = 10 cerises. Série de 15 joueurs par partie.
+- Validation : comparaison normalisée (sans accents, lowercase) entre la réponse utilisateur et `players.current_club`.
 
 **Fin de partie** :
-- Timer à 0 OU tous les joueurs présentés
-- Appel `validate_club_actuel_answers()` avec la question_id
-- La fonction utilise `question_answers` pour récupérer les joueurs et valider les réponses
-- Calcul score final (10 points par bonne réponse)
-- Navigation vers `GameResultsScreen`
+- Timer à 0 OU tous les joueurs présentés (15 joueurs).
+- Appel `validate_club_actuel_answers()` avec la question_id, les réponses utilisateur, le temps restant, et le nombre de streaks.
+- La fonction utilise `question_answers` pour récupérer les joueurs et valider les réponses.
+- Calcul score final avec bonus (streaks, temps) : 10 cerises par bonne réponse + bonus streaks + bonus temps.
+- Maximum 200 cerises (hors bonus temps).
+- Navigation vers `GameResultsScreen`.
 
 **Stockage des données** :
-- Les joueurs à deviner sont stockés dans la table `question_answers`
-- Chaque joueur = 1 enregistrement avec `player_id`, `display_order`
-- La réponse correcte (club actuel) est récupérée depuis `players.current_club`
+- Les joueurs à deviner sont stockés dans la table `question_answers`.
+- Chaque joueur = 1 enregistrement avec `player_id`, `display_order`.
+- La réponse correcte (club actuel) est récupérée depuis `players.current_club`.
+- L'autocomplétion des clubs utilise une liste unique de clubs depuis `players.current_club` ou une référence vers la table `clubs`.
 
 ---
 
