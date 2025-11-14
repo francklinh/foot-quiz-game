@@ -32,6 +32,43 @@ export function LogoSniper() {
   const [streakCount, setStreakCount] = useState<number>(0);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [foundLogos, setFoundLogos] = useState<Set<number>>(new Set());
+  
+  // Blur effect state - Configuration du flou des logos
+  const [blurType, setBlurType] = useState<'simple' | 'combined' | 'progressive'>('combined'); // Type de flou
+  const [blurIntensity, setBlurIntensity] = useState<'light' | 'medium' | 'strong'>('medium'); // Intensité du flou
+  
+  // Calcul du niveau de flou selon le type et l'intensité
+  const getBlurStyle = () => {
+    if (blurType === 'progressive') {
+      // Flou progressif : augmente avec le nombre de logos trouvés
+      const progress = logos.length > 0 ? currentLogoIndex / logos.length : 0;
+      let blurValue = 4;
+      if (progress < 0.3) blurValue = 4;  // 30% premiers logos
+      else if (progress < 0.6) blurValue = 6;  // 30-60% logos
+      else if (progress < 0.9) blurValue = 8;  // 60-90% logos
+      else blurValue = 10;  // Derniers 10% logos
+      
+      return {
+        filter: `blur(${blurValue}px) contrast(0.8) brightness(0.9) saturate(0.7)`,
+      };
+    }
+    
+    if (blurType === 'combined') {
+      // Flou combiné : blur + contrast + brightness + saturate
+      const blurMap = { light: 4, medium: 6, strong: 8 };
+      const blurValue = blurMap[blurIntensity];
+      return {
+        filter: `blur(${blurValue}px) contrast(0.8) brightness(0.9) saturate(0.7)`,
+      };
+    }
+    
+    // Flou simple : seulement blur
+    const blurMap = { light: 4, medium: 6, strong: 8 };
+    const blurValue = blurMap[blurIntensity];
+    return {
+      filter: `blur(${blurValue}px)`,
+    };
+  };
 
   // Results
   const [finalScore, setFinalScore] = useState<number>(0);
@@ -292,21 +329,61 @@ export function LogoSniper() {
 
         {/* Question Selector */}
         {!gameStarted && (
-          <div className="card-primary rounded-xl p-4 mb-6">
-            <label className="block text-sm font-semibold mb-2 text-primary">Sélectionner une question</label>
-            <select
-              value={selectedQuestion}
-              onChange={(e) => setSelectedQuestion(e.target.value)}
-              disabled={gameStarted}
-              className="w-full p-3 rounded-xl border-2 border-primary input-primary font-medium focus:outline-none focus:border-primary transition-colors"
-            >
-              <option value="">-- Choisir une question --</option>
-              {availableQuestions.map((q) => (
-                <option key={q.id} value={q.id}>
-                  {q.title}
-                </option>
-              ))}
-            </select>
+          <div className="space-y-4 mb-6">
+            <div className="card-primary rounded-xl p-4">
+              <label className="block text-sm font-semibold mb-2 text-primary">Sélectionner une question</label>
+              <select
+                value={selectedQuestion}
+                onChange={(e) => setSelectedQuestion(e.target.value)}
+                disabled={gameStarted}
+                className="w-full p-3 rounded-xl border-2 border-primary input-primary font-medium focus:outline-none focus:border-primary transition-colors"
+              >
+                <option value="">-- Choisir une question --</option>
+                {availableQuestions.map((q) => (
+                  <option key={q.id} value={q.id}>
+                    {q.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            {/* Blur Settings */}
+            <div className="card-primary rounded-xl p-4">
+              <label className="block text-sm font-semibold mb-2 text-primary">Niveau de difficulté (flou)</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-secondary mb-1">Type de flou</label>
+                  <select
+                    value={blurType}
+                    onChange={(e) => setBlurType(e.target.value as 'simple' | 'combined' | 'progressive')}
+                    disabled={gameStarted}
+                    className="w-full p-2 rounded-xl border-2 border-primary input-primary font-medium text-sm focus:outline-none focus:border-primary transition-colors"
+                  >
+                    <option value="simple">Simple (flou uniquement)</option>
+                    <option value="combined">Combiné (flou + contraste + saturation)</option>
+                    <option value="progressive">Progressif (difficulté augmente)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-secondary mb-1">Intensité</label>
+                  <select
+                    value={blurIntensity}
+                    onChange={(e) => setBlurIntensity(e.target.value as 'light' | 'medium' | 'strong')}
+                    disabled={gameStarted || blurType === 'progressive'}
+                    className="w-full p-2 rounded-xl border-2 border-primary input-primary font-medium text-sm focus:outline-none focus:border-primary transition-colors"
+                  >
+                    <option value="light">Léger (4px)</option>
+                    <option value="medium">Moyen (6px)</option>
+                    <option value="strong">Fort (8px)</option>
+                  </select>
+                </div>
+              </div>
+              <p className="text-xs text-secondary mt-2">
+                {blurType === 'simple' && 'Flou uniforme sur toute l\'image'}
+                {blurType === 'combined' && 'Flou combiné avec réduction de contraste, luminosité et saturation'}
+                {blurType === 'progressive' && 'Le flou augmente progressivement avec le nombre de logos trouvés'}
+              </p>
+            </div>
           </div>
         )}
 
@@ -335,7 +412,8 @@ export function LogoSniper() {
                 <img
                   src={currentLogo.club.logo_url}
                   alt="Logo"
-                  className="w-64 h-64 object-contain rounded-xl bg-accent p-4 border-4 border-primary"
+                  className="w-64 h-64 object-contain rounded-xl bg-accent p-4 border-4 border-primary transition-all duration-300"
+                  style={getBlurStyle()}
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = "https://via.placeholder.com/256x256?text=Logo+Missing";
                   }}
