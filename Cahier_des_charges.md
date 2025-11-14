@@ -1231,7 +1231,17 @@ END;
 $ LANGUAGE plpgsql;
 ```
 
-**Usage** : Appelée côté app pour calculer le score et les cerises gagnées du joueur dans Club Actuel. Utilise la table `question_answers` avec les champs `player_id`, `display_order`, et la jointure avec `players.current_club`.
+**Fonctionnalités** :
+- **Validation avec normalisation** : Utilise `normalize_club_name()` pour comparer les réponses
+- **Vérification des variantes** : Vérifie aussi les `name_variations` de la table `clubs`
+- **Calcul des cerises** :
+  - Base : 10 cerises par bonne réponse
+  - Bonus streaks : +10 cerises à 3 et 6 bonnes réponses consécutives, +15 à 9 et 12
+  - Bonus temps : +1 cerise par seconde restante (hors plafond de 200 cerises)
+  - Maximum : 200 cerises (base + streaks), bonus temps en plus
+- **Score** : 10 points par bonne réponse
+
+**Usage** : Appelée côté app pour calculer le score et les cerises gagnées du joueur dans Club Actuel. Utilise la table `question_answers` avec les champs `player_id`, `display_order`, et la jointure avec `players.current_club`. La fonction prend en compte les streaks et le temps restant pour calculer les bonus.
 
 **Paramètres** :
 - `p_user_answers` : JSONB avec les réponses de l'utilisateur (format: `{"player_id": "club_name"}` ou `{"player_name": "club_name"}`)
@@ -1251,45 +1261,23 @@ $ LANGUAGE plpgsql;
 
 ### 3.4.7 Évolutions Base de Données pour CLUB ACTUEL
 
-**Évolutions nécessaires pour le jeu Club Actuel** :
+**Évolutions implémentées pour le jeu Club Actuel** :
 
-#### 3.4.7.1 Autocomplétion des Clubs
+#### 3.4.7.1 Fonction d'Autocomplétion des Clubs
 
-**Problématique** : L'autocomplétion intelligente des clubs nécessite une liste normalisée et dédupliquée des noms de clubs.
+**Implémentation** : Fonction `search_clubs()` qui retourne un JSONB pour meilleure compatibilité avec Supabase RPC.
 
-**Solutions possibles** :
-
-**Option A : Utiliser la table `clubs` existante** (Recommandé)
-- Avantage : Déjà normalisée, contient `name_variations` pour les variantes acceptées
-- Inconvénient : La table `clubs` est principalement dédiée à Logo Sniper (logos)
-- Solution : Étendre l'utilisation de `clubs` pour inclure tous les clubs référencés dans `players.current_club`
-- Migration nécessaire :
-  ```sql
-  -- S'assurer que tous les clubs de players.current_club existent dans clubs
-  INSERT INTO clubs (name, type, country, league)
-  SELECT DISTINCT current_club, 'CLUB', NULL, NULL
-  FROM players
-  WHERE current_club IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM clubs WHERE clubs.name = players.current_club
-  );
-  
-  -- Créer une fonction d'autocomplétion pour les clubs
-  CREATE OR REPLACE FUNCTION search_clubs(
-    p_search_term TEXT,
-    p_limit INTEGER DEFAULT 20
-  )
-  RETURNS TABLE(
-    id UUID,
-    name VARCHAR,
-    name_variations TEXT[],
-    type VARCHAR,
-    country VARCHAR,
-    league VARCHAR,
-    relevance REAL
-  ) AS $
-  BEGIN
-    RETURN QUERY
+**Fonction SQL** :
+```sql
+CREATE OR REPLACE FUNCTION search_clubs(
+  p_search_term TEXT,
+  p_limit INTEGER DEFAULT 20
+)
+RETURNS JSONB AS $$
+DECLARE
+  v_result JSONB;
+BEGIN
+  WITH ranked_clubs AS (
     SELECT 
       c.id,
       c.name,
@@ -1298,103 +1286,160 @@ $ LANGUAGE plpgsql;
       c.country,
       c.league,
       CASE 
-        WHEN LOWER(c.name) = LOWER(p_search_term) THEN 1.0
-        WHEN LOWER(c.name) LIKE LOWER(p_search_term) || '%' THEN 0.8
-        WHEN LOWER(c.name) LIKE '%' || LOWER(p_search_term) || '%' THEN 0.6
+        WHEN LOWER(TRIM(c.name)) = LOWER(TRIM(p_search_term)) THEN 1.0
+        WHEN LOWER(c.name) LIKE LOWER(TRIM(p_search_term)) || '%' THEN 0.8
+        WHEN LOWER(c.name) LIKE '%' || LOWER(TRIM(p_search_term)) || '%' THEN 0.6
         ELSE 0.4
       END as relevance
     FROM clubs c
     WHERE c.is_active = true
     AND (
-      LOWER(c.name) LIKE '%' || LOWER(p_search_term) || '%'
-      OR EXISTS(
+      LOWER(c.name) LIKE '%' || LOWER(TRIM(p_search_term)) || '%'
+      OR (c.name_variations IS NOT NULL AND EXISTS(
         SELECT 1 FROM unnest(c.name_variations) as v
-        WHERE LOWER(v) LIKE '%' || LOWER(p_search_term) || '%'
-      )
+        WHERE LOWER(v) LIKE '%' || LOWER(TRIM(p_search_term)) || '%'
+      ))
     )
-    ORDER BY relevance DESC, c.name
-    LIMIT p_limit;
-  END;
-  $ LANGUAGE plpgsql;
-  ```
-
-**Option B : Créer une vue matérialisée des clubs uniques**
-- Créer une vue qui agrège les clubs depuis `players.current_club`
-- Avantage : Pas de duplication, toujours à jour
-- Inconvénient : Nécessite un refresh périodique, pas de normalisation des variantes
-- Solution :
-  ```sql
-  CREATE MATERIALIZED VIEW clubs_from_players AS
-  SELECT DISTINCT
-    current_club as name,
-    COUNT(*) as player_count
-  FROM players
-  WHERE current_club IS NOT NULL
-  AND is_active = true
-  GROUP BY current_club;
+    ORDER BY relevance DESC, c.name ASC
+    LIMIT p_limit
+  )
+  SELECT jsonb_agg(
+    jsonb_build_object(
+      'id', id,
+      'name', name,
+      'name_variations', COALESCE(name_variations, ARRAY[]::TEXT[]),
+      'type', COALESCE(type, 'CLUB'),
+      'country', country,
+      'league', league,
+      'relevance', relevance
+    )
+    ORDER BY relevance DESC, name ASC
+  ) INTO v_result
+  FROM ranked_clubs;
   
-  CREATE INDEX idx_clubs_from_players_name ON clubs_from_players(name);
+  RETURN COALESCE(v_result, '[]'::JSONB);
+END;
+$$ LANGUAGE plpgsql;
+```
+
+**Caractéristiques** :
+- **Retour JSONB** : Compatible avec Supabase RPC (évite les problèmes de type TABLE)
+- **Recherche intelligente** : Recherche dans `name` et `name_variations`
+- **Pertinence** : Score de pertinence (1.0 = correspondance exacte, 0.8 = commence par, 0.6 = contient, 0.4 = autre)
+- **Tri** : Résultats triés par pertinence décroissante puis par nom alphabétique
+- **Limite** : Par défaut 20 résultats, configurable via `p_limit`
+
+**Utilisation côté Frontend** :
+- Appel via `supabase.rpc('search_clubs', { p_search_term: '...', p_limit: 10 })`
+- Fallback : Si RPC échoue, requête directe sur la table `clubs` avec `ilike`
+- Debounce : 300ms pour éviter trop de requêtes
+- Affichage : Liste déroulante avec tous les clubs correspondants, triés par pertinence
+
+#### 3.4.7.2 Fonction de Normalisation des Noms de Clubs
+
+**Implémentation** : Fonction `normalize_club_name()` pour standardiser les noms de clubs lors de la validation.
+
+**Fonction SQL** :
+```sql
+CREATE OR REPLACE FUNCTION normalize_club_name(p_name TEXT)
+RETURNS TEXT AS $$
+BEGIN
+  IF p_name IS NULL THEN
+    RETURN NULL;
+  END IF;
   
-  -- Refresh périodique (via cron ou trigger)
-  REFRESH MATERIALIZED VIEW clubs_from_players;
-  ```
+  RETURN LOWER(TRIM(translate(
+    p_name,
+    'àáâãäåèéêëìíîïòóôõöùúûüýÿÀÁÂÃÄÅÈÉÊËÌÍÎÏÒÓÔÕÖÙÚÛÜÝŸ',
+    'aaaaaaeeeeiiiioooouuuuyyAAAAAAEEEEIIIIOOOOUUUUYY'
+  )));
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+```
 
-**Recommandation** : **Option A** - Utiliser la table `clubs` existante et créer une fonction d'autocomplétion dédiée.
+**Caractéristiques** :
+- **Suppression des accents** : Convertit tous les caractères accentués en leurs équivalents sans accent
+- **Lowercase** : Convertit en minuscules
+- **Trim** : Supprime les espaces en début et fin
+- **IMMUTABLE** : Peut être utilisée dans les index et optimisée par PostgreSQL
+- **NULL-safe** : Gère les valeurs NULL correctement
 
-#### 3.4.7.2 Normalisation des Noms de Clubs
-
-**Problématique** : Les noms de clubs peuvent varier dans `players.current_club` (ex: "Real Madrid", "Real Madrid CF", "Real").
-
-**Solution** :
-- Utiliser la normalisation côté PostgreSQL dans la fonction de validation (déjà implémentée)
-- Créer une fonction utilitaire de normalisation réutilisable :
-  ```sql
-  CREATE OR REPLACE FUNCTION normalize_club_name(p_name TEXT)
-  RETURNS TEXT AS $
-  BEGIN
-    RETURN LOWER(TRIM(translate(
-      p_name,
-      'àáâãäåèéêëìíîïòóôõöùúûüýÿ',
-      'aaaaaaeeeeiiiioooouuuuyy'
-    )));
-  END;
-  $ LANGUAGE plpgsql IMMUTABLE;
-  ```
-- Utiliser cette fonction dans `validate_club_actuel_answers()` pour comparer les noms
+**Utilisation** :
+- Utilisée dans `validate_club_actuel_answers()` pour comparer les réponses utilisateur avec les clubs corrects
+- Permet de valider "Real Madrid", "Real Madrid CF", "real madrid", etc. comme équivalents
 
 #### 3.4.7.3 Gestion des Variantes de Noms de Clubs
 
-**Problématique** : Un même club peut être écrit de différentes façons (ex: "PSG", "Paris Saint-Germain", "PSG FC").
+**Implémentation** : Utilisation du champ `name_variations` de la table `clubs` pour gérer les différentes écritures d'un même club.
 
-**Solution** :
-- Utiliser le champ `name_variations` de la table `clubs`
-- Lors de la création/mise à jour d'un joueur, vérifier si le club existe dans `clubs` avec ses variantes
-- Si le club n'existe pas, créer une entrée dans `clubs` avec les variantes communes
-- Dans la fonction de validation, vérifier aussi les variantes :
-  ```sql
-  -- Dans validate_club_actuel_answers()
-  -- Vérifier si le club du joueur correspond à un club dans la table clubs
-  -- et utiliser les variantes pour la validation
-  SELECT c.name, c.name_variations
-  FROM clubs c
-  WHERE c.name = v_answer.current_club
-  OR v_answer.current_club = ANY(c.name_variations);
-  ```
+**Fonctionnalités** :
+- **Recherche dans les variantes** : La fonction `search_clubs()` recherche aussi dans `name_variations`
+- **Validation avec variantes** : La fonction `validate_club_actuel_answers()` vérifie les variantes lors de la validation
+- **Synchronisation** : Le script `sync_clubs_from_players.sql` met à jour automatiquement les `name_variations`
+
+**Synchronisation automatique** :
+- Script `sql/sync_clubs_from_players.sql` :
+  - Crée les clubs manquants depuis `players.current_club`
+  - Désactive les clubs non référencés par des joueurs actifs
+  - Réactive les clubs référencés par des joueurs actifs
+  - Met à jour les `name_variations` pour inclure les variantes courantes (avec/sans tirets, espaces)
+
+**Exemple de validation** :
+```sql
+-- Dans validate_club_actuel_answers()
+-- Récupération du club et ses variantes
+SELECT c.name, c.name_variations
+INTO v_club_name, v_club_variations
+FROM clubs c
+WHERE c.name = v_answer.current_club
+OR v_answer.current_club = ANY(c.name_variations);
+
+-- Vérification avec normalisation
+v_is_correct := (
+  v_user_club_normalized = v_correct_club_normalized
+  OR EXISTS(
+    SELECT 1 FROM unnest(v_club_variations) as variant
+    WHERE normalize_club_name(variant) = v_user_club_normalized
+  )
+);
+```
 
 #### 3.4.7.4 Index pour Performance
 
-**Index à créer** pour optimiser les requêtes :
+**Index créés** pour optimiser les requêtes :
+
 ```sql
 -- Index sur players.current_club pour recherche rapide
 CREATE INDEX IF NOT EXISTS idx_players_current_club 
 ON players(current_club) 
 WHERE current_club IS NOT NULL AND is_active = true;
 
--- Index sur clubs.name pour autocomplétion
-CREATE INDEX IF NOT EXISTS idx_clubs_name_search 
-ON clubs USING gin(to_tsvector('french', name || ' ' || array_to_string(name_variations, ' ')))
-WHERE is_active = true;
+-- Index sur clubs.name pour autocomplétion (avec pg_trgm si disponible)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm') THEN
+    -- Index trigram pour recherche partielle rapide
+    CREATE INDEX IF NOT EXISTS idx_clubs_name_trgm 
+    ON clubs USING gin(name gin_trgm_ops)
+    WHERE is_active = true;
+  ELSE
+    -- Index simple si pg_trgm n'est pas disponible
+    CREATE INDEX IF NOT EXISTS idx_clubs_name_search 
+    ON clubs(name)
+    WHERE is_active = true;
+  END IF;
+END $$;
+
+-- Index GIN sur clubs.name_variations pour recherche dans les variantes
+CREATE INDEX IF NOT EXISTS idx_clubs_name_variations 
+ON clubs USING gin(name_variations)
+WHERE is_active = true AND name_variations IS NOT NULL;
 ```
+
+**Optimisations** :
+- **Index partiel** : Seulement sur les clubs actifs (`WHERE is_active = true`)
+- **Index trigram** : Utilise `pg_trgm` si disponible pour recherche partielle très rapide
+- **Index GIN** : Pour recherche efficace dans les tableaux `name_variations`
 
 #### 3.4.7.5 Traçabilité des Transferts (Optionnel - Future)
 
@@ -1421,30 +1466,59 @@ Cette table permettrait de :
 
 **Note** : Cette évolution est optionnelle et peut être ajoutée dans une version future.
 
-#### 3.4.7.6 Scripts SQL de Migration
+#### 3.4.7.6 Scripts SQL de Migration et Synchronisation
 
 **Fichiers SQL créés** :
-- `sql/migrations/club_actuel_setup.sql` : Script de migration complet avec toutes les fonctions et index
-- `sql/test_club_actuel_functions.sql` : Script de tests pour vérifier les fonctions
 
-**Contenu du script de migration** :
-1. Fonction `normalize_club_name()` : Normalisation des noms de clubs
-2. Fonction `search_clubs()` : Autocomplétion intelligente des clubs
-3. Fonction `validate_club_actuel_answers()` : Validation mise à jour avec streaks et bonus temps
-4. Index de performance : `idx_players_current_club`, `idx_clubs_name_trgm`, `idx_clubs_name_variations`
-5. Migration des clubs : Insertion automatique des clubs depuis `players.current_club` vers `clubs`
-6. Fonction helper : `get_clubs_from_players()` pour l'administration
+1. **`sql/migrations/club_actuel_setup.sql`** : Script de migration principal
+   - Fonction `normalize_club_name()` : Normalisation des noms de clubs
+   - Fonction `search_clubs()` : Autocomplétion intelligente (retour JSONB)
+   - Fonction `search_clubs_table()` : Version alternative avec retour TABLE
+   - Fonction `validate_club_actuel_answers()` : Validation avec streaks et bonus temps
+   - Index de performance : `idx_players_current_club`, `idx_clubs_name_trgm`, `idx_clubs_name_variations`
+   - Migration des clubs : Insertion automatique des clubs depuis `players.current_club` vers `clubs`
+   - Fonction helper : `get_clubs_from_players()` pour l'administration
+
+2. **`sql/sync_clubs_from_players.sql`** : Script de synchronisation
+   - Crée les clubs manquants depuis `players.current_club`
+   - Désactive les clubs non référencés par des joueurs actifs
+   - Réactive les clubs référencés par des joueurs actifs
+   - Met à jour les `name_variations` pour inclure les variantes courantes
+   - **Important** : Garantit que les noms dans `clubs` correspondent EXACTEMENT aux `current_club`
+
+3. **`sql/fix_search_clubs.sql`** : Script de correction
+   - Met à jour la fonction `search_clubs()` pour retourner JSONB (compatibilité Supabase)
+
+4. **`sql/test_club_actuel_functions.sql`** : Script de tests
+   - Tests de la fonction `normalize_club_name()`
+   - Tests de la fonction `search_clubs()`
+   - Tests de la fonction `validate_club_actuel_answers()`
+
+5. **`sql/migrations/check_prerequisites_club_actuel.sql`** : Vérification des prérequis
+   - Vérifie l'existence des tables nécessaires
+   - Vérifie les colonnes requises
+   - Vérifie les extensions optionnelles (pg_trgm)
 
 **Instructions d'utilisation** :
+
 ```sql
--- 1. Exécuter le script de migration
+-- 1. (Recommandé) Vérifier les prérequis
+\i sql/migrations/check_prerequisites_club_actuel.sql
+
+-- 2. Exécuter le script de migration principal
 \i sql/migrations/club_actuel_setup.sql
 
--- 2. (Optionnel) Exécuter les tests
+-- 3. Synchroniser les clubs depuis players.current_club
+\i sql/sync_clubs_from_players.sql
+
+-- 4. (Optionnel) Exécuter les tests
 \i sql/test_club_actuel_functions.sql
 ```
 
-**Note importante** : Le script de migration est idempotent (peut être exécuté plusieurs fois sans erreur grâce à `CREATE OR REPLACE` et `IF NOT EXISTS`).
+**Note importante** : 
+- Les scripts sont idempotents (peut être exécutés plusieurs fois sans erreur grâce à `CREATE OR REPLACE` et `IF NOT EXISTS`)
+- Le script `sync_clubs_from_players.sql` peut être exécuté régulièrement pour maintenir la synchronisation
+- Les clubs créés automatiquement ont une URL placeholder pour `logo_url` (si contrainte NOT NULL)
 
 ---
 

@@ -61,3 +61,4 @@ END $$;
 -- dans public.users après l'inscription dans auth.users
 -- (Voir src/services/auth.service.ts)
 
+

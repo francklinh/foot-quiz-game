@@ -48,3 +48,4 @@ AND tablename = 'users';
 -- Note: Pour réactiver RLS plus tard:
 -- ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
+

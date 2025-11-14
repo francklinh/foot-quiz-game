@@ -71,3 +71,4 @@ FROM public.users
 WHERE email LIKE '%@temp.com' OR pseudo = 'User'
 ORDER BY created_at DESC;
 
+
