@@ -39,9 +39,9 @@ CLAFOOTIX est une application de jeux de football permettant aux utilisateurs de
   - Système de scoring et classement opérationnel
 
 **Jeux en développement** :
-- **LOGO SNIPER** 🔜 : Jeu de rapidité et de réflexe visuel où le joueur doit identifier des logos de clubs ou de sélections apparaissant successivement
-- **CLUB ACTUEL** 🔜 : Jeu d'actualité et de culture foot où l'utilisateur voit l'identité d'un joueur (photo + nom OU photo seule selon le mode) et doit indiquer le club dans lequel il évolue actuellement. Combine réflexe, mémoire et veille football (transferts, mercato, actualité des championnats).
-- **CARRIÈRE INFERNALE** 🔜 : [Description à venir]
+- **LOGO SNIPER** ✅ : Jeu de rapidité et de réflexe visuel où le joueur doit identifier des logos de clubs ou de sélections apparaissant successivement
+- **CLUB ACTUEL** ✅ : Jeu d'actualité et de culture foot où l'utilisateur voit l'identité d'un joueur (photo + nom OU photo seule selon le mode) et doit indiquer le club dans lequel il évolue actuellement. Combine réflexe, mémoire et veille football (transferts, mercato, actualité des championnats).
+- **CARRIÈRE INFERNALE** 🔜 : Jeu de reconstruction de carrière inversé où le joueur doit sélectionner les clubs réels où un footballeur a joué parmi 10 logos affichés en cercle. Maximum 15 bonnes réponses par partie réparties sur plusieurs joueurs selon un système de familles (3, 4, 5, 6 clubs par joueur).
 
 ### 1.2 Modes de Jeu
 
@@ -328,7 +328,7 @@ INSERT INTO game_types (code, name, description, duration_seconds) VALUES
   ('TOP10', 'Top 10', 'Trouve les 10 éléments d''un classement', 60),
   ('LOGO_SNIPER', 'Logo Sniper', 'Identifie rapidement les logos de clubs et sélections apparaissant successivement', 60),
   ('CLUB_ACTUEL', 'Club Actuel', 'Devine le club actuel des joueurs présentés', 60),
-  ('CARRIERE_INFERNALE', 'Carrière Infernale', '[Description à venir]', 60);
+  ('CARRIERE_INFERNALE', 'Carrière Infernale', 'Reconstitue la carrière des joueurs en sélectionnant leurs clubs réels parmi 10 logos', 60);
 ```
 
 ---
@@ -494,7 +494,9 @@ CREATE INDEX idx_questions_archived ON questions(is_archived) WHERE is_archived 
 - "Devine le club actuel des joueurs (nom + nationalité)"
 
 **CARRIERE_INFERNALE** (game_type = 'CARRIERE_INFERNALE') :
-- [Description à venir]
+- "Reconstitue la carrière de [Joueur]"
+- "Quels clubs a fréquenté [Joueur] ?"
+- "Carrière Infernale - [Joueur]"
 
 **Note importante** : 
 - Le champ `player_ids` dans `questions` est optionnel et peut être utilisé pour référence rapide
@@ -589,7 +591,7 @@ CREATE INDEX idx_question_answers_answer_norm ON question_answers(answer_norm) W
 - Pour **TOP10** : utilise `player_id`, `ranking`, `points`
 - Pour **LOGO SNIPER** : utilise `club_id`, `display_order` (référence vers la table `clubs` qui contient logo_url, name, name_variations)
 - Pour **CLUB ACTUEL** : utilise `player_id`, `is_correct`, `display_order`
-- Pour **CARRIÈRE INFERNALE** : [À définir selon les spécifications]
+- Pour **CARRIÈRE INFERNALE** : utilise `player_id`, `club_id`, `display_order` (référence vers les clubs réels où le joueur a évolué)
 - Contrainte : Au moins un de `player_id`, `club_id` ou `answer_text` doit être rempli
 - Pour Logo Sniper : Les données (logo, noms) sont dans `clubs`, évitant la duplication
 - Le champ `answer_norm` est utilisé pour la normalisation lors de la validation (sans accents, lowercase) si `answer_text` est utilisé
@@ -2624,18 +2626,138 @@ Joueurs devinés: 3/15
 
 #### 4.5.5 CARRIÈRE INFERNALE - Interface
 
-*[Description à venir - En attente de spécifications]*
+**Thématique & Concept** :
+
+**Concept revisité** :
+- Jeu de reconstruction de carrière inversé
+- Le portrait du joueur est au centre de l'écran
+- 10 logos de clubs apparaissent en cercle autour de lui
+- Le joueur doit sélectionner uniquement les clubs réels où ce footballeur a joué, dans n'importe quel ordre
+- Une fois validé → passage immédiat au joueur suivant
+
+**⚠️ Important** :
+- Une partie complète contient **maximum 15 bonnes réponses** réparties sur plusieurs joueurs
+- **Durée de la partie : 60 secondes** (timer visible en haut de l'écran)
+- La partie se termine automatiquement si le timer atteint 0, même si 15 bonnes réponses ne sont pas atteintes
+
+**Ambiance visuelle** :
+- Fond rouge sombre + effet braises / chaleur
+- Nom du joueur au centre (fixe)
+- 10 logos en cercle, animés légèrement (rotation lente ou pulsation)
+- Effets lumineux rouges et dorés sur validation
+- Interface moderne, typographie dynamique, ambiance infernale / feu
 
 **Zone centrale** :
 ```
-[Interface à définir]
+┌─────────────────────────────────────┐
+│         ⏱️ 45s                      │
+│                                     │
+│         [Photo du joueur]           │
+│         (portrait au centre)        │
+│                                     │
+│         Kylian Mbappé               │
+│                                     │
+│    [Logo]  [Logo]  [Logo]          │
+│       ╱         │         ╲         │
+│  [Logo]         │      [Logo]       │
+│       ╲         │         ╱          │
+│    [Logo]  [Logo]  [Logo]          │
+│                                     │
+│    Sélectionne les clubs réels      │
+│    où ce joueur a évolué            │
+│                                     │
+│         [VALIDER]                   │
+│                                     │
+│    Réponses correctes: 5/15         │
+└─────────────────────────────────────┘
 ```
 
 **Fonctionnalités** :
-- [À compléter]
+
+**Interface visuelle** :
+- **Timer en haut** : 60 secondes (compte à rebours visible)
+- Portrait du joueur au centre (nom affiché)
+- 10 logos de clubs disposés en cercle autour du joueur
+- Logos animés légèrement (rotation lente ou pulsation)
+- Fond rouge sombre avec effet braises / chaleur
+- Compteur de réponses correctes (max 15)
+
+**Interaction** :
+- Le joueur clique pour sélectionner/désélectionner les logos
+- Aucun ordre chronologique nécessaire
+- Bouton VALIDER une fois la sélection faite
+- Transition fluide vers le joueur suivant après validation
+
+**Feedback visuel** :
+- **Bonne sélection** → halo doré autour du logo
+- **Mauvaise sélection** → logo se désintègre en fumée noire
+- **Perfect sur un joueur** (tous les clubs corrects sélectionnés) → cercle de flamme dorée se referme
+- **Transition** → effet de flamme entre les joueurs
+
+**Feedback sonore** :
+- **Bonne réponse** → "pling" métallique
+- **Mauvaise** → bruit carton rouge
+- **Perfect joueur** → mini jingle Clafootix
+
+**Système de points & Feedback** :
+
+**Barème des cerises** :
+- Maximum 15 bonnes réponses par partie
+- 10 cerises par bonne réponse = 150 cerises de base
+- **Bonus perfect** (tous les clubs d'un joueur trouvés) :
+  - +5 cerises par joueur perfect
+- **Maximum : 200 cerises** (150 base + 50 bonus perfect max)
+
+**Feedback visuel** :
+- **Bonne sélection** → halo doré autour du logo
+- **Mauvaise sélection** → logo se désintègre en fumée noire
+- **Perfect joueur** → cercle de flamme dorée se referme autour du joueur
+- **Fin de partie** → explosion de flammes dorées
+
+**Messages finaux** :
+- **15/15 perfect** : "Carrière infernale parfaite ! Tu connais tous les clubs ! 🔥🍒"
+- **12-14** : "Belle connaissance des carrières ! Encore quelques clubs et c'était parfait !"
+- **8-11** : "Bon niveau, mais quelques clubs t'ont échappé."
+- **0-7** : "Tu as encore du chemin à faire pour maîtriser les carrières..."
+
+**Système de base de données** :
+
+**Familles de joueurs** :
+Pour permettre à l'algorithme de composer une partie équilibrée, création de familles de joueurs :
+- **Groupe 6 clubs** : Joueurs ayant joué dans 6 clubs
+- **Groupe 5 clubs** : Joueurs ayant joué dans 5 clubs
+- **Groupe 4 clubs** : Joueurs ayant joué dans 4 clubs
+- **Groupe 3 clubs** : Joueurs ayant joué dans 3 clubs
+- (Optionnel futur : 2 clubs, 7 clubs)
+
+**Utilisation en partie** :
+L'algorithme sélectionne des joueurs jusqu'à atteindre 15 bonnes réponses max.
+
+**Exemple de partie** :
+- 1 joueur → 5 clubs corrects
+- 1 joueur → 4 clubs corrects
+- 2 joueurs → 3 clubs corrects
+= 15 bonnes réponses, 7 mauvaises possibles selon logos
+
+**Ainsi** :
+- ✅ jamais plus que 15 réponses correctes
+- ✅ composition variée à chaque partie
+
+**Stockage des données** :
+- Les joueurs sont stockés dans la table `question_answers` avec `player_id`
+- Chaque joueur a une liste de clubs réels où il a joué (à stocker dans une structure appropriée)
+- Les 10 logos affichés incluent les clubs réels + des clubs distracteurs
+- La validation compare les clubs sélectionnés avec les clubs réels du joueur
 
 **Fin de partie** :
-- [À compléter]
+- **Timer atteint 0** (60 secondes écoulées) OU
+- 15 bonnes réponses atteintes OU
+- Tous les joueurs présentés
+- Appel `validate_carriere_infernale_answers()` avec la question_id et les sélections utilisateur
+- La fonction valide chaque sélection (bonne/mauvaise)
+- Calcul score final : 10 cerises par bonne réponse + bonus perfect
+- Maximum 200 cerises
+- Navigation vers l'écran de résultats
 
 ---
 

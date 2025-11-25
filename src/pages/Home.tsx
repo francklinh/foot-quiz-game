@@ -46,17 +46,16 @@ export function Home() {
       icon: "🎯"
     },
     {
-      title: "GRILLE",
-      path: "#",
-      active: false,
-      icon: "⚡",
-      comingSoon: true
-    },
-    {
       title: "CLUB ACTUEL",
       path: buildGamePath('/club-actuel'),
       active: true,
       icon: "⚽"
+    },
+    {
+      title: "CARRIÈRE INFERNALE",
+      path: buildGamePath('/carriere-infernale'),
+      active: true,
+      icon: "🔥"
     }
   ];
 

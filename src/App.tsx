@@ -18,6 +18,7 @@ import { Regles } from "./pages/Regles";
 import { Top10 } from "./pages/Top10";
 import { LogoSniper } from "./pages/LogoSniper";
 import { ClubActuel } from "./pages/ClubActuel";
+import { CarriereInfernale } from "./pages/CarriereInfernale";
 import { TestSupabase } from "./pages/TestSupabase";
 import { Admin } from "./pages/Admin";
 import { SimpleLogin } from "./pages/SimpleLogin";
@@ -141,6 +142,7 @@ function App() {
                 <Route path="/top10/:slug" element={<Top10 />} />
                 <Route path="/logo-sniper" element={<LogoSniper />} />
                 <Route path="/club-actuel" element={<ClubActuel />} />
+                <Route path="/carriere-infernale" element={<CarriereInfernale />} />
                 
                 {/* Pages techniques */}
                 <Route path="/test" element={<TestSupabase />} />

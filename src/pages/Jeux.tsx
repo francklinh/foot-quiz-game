@@ -25,12 +25,11 @@ export function Jeux() {
       description: "Devinez le club actuel des joueurs"
     },
     {
-      title: "GRILLE",
-      path: "#",
-      active: false,
-      icon: "⚡",
-      description: "Bientôt disponible",
-      comingSoon: true
+      title: "CARRIÈRE INFERNALE",
+      path: "/carriere-infernale",
+      active: true,
+      icon: "🔥",
+      description: "Reconstitue la carrière des joueurs"
     }
   ];
 
@@ -90,11 +89,6 @@ export function Jeux() {
                   <p className="text-muted text-sm">
                     {module.description}
                   </p>
-                  {module.comingSoon && (
-                    <span className="mt-2 inline-block bg-accent text-primary px-3 py-1 rounded-full text-xs font-bold">
-                      BIENTÔT DISPONIBLE
-                    </span>
-                  )}
                 </div>
               )}
             </div>

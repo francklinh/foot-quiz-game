@@ -214,7 +214,7 @@ export class StatsService {
         throw new Error(error.message);
       }
 
-      const gameTypes = ['TOP10', 'GRILLE', 'CLUB', 'CLUB_ACTUEL', 'LOGO_SNIPER'];
+      const gameTypes = ['TOP10', 'GRILLE', 'CLUB', 'CLUB_ACTUEL', 'LOGO_SNIPER', 'CARRIERE_INFERNALE'];
       const gameStats: GameStats[] = [];
 
       for (const gameType of gameTypes) {
